@@ -11,6 +11,10 @@ server.get("/", (req, res) => {
    res.sendFile(__dirname + '/index.html');
 });
 
+server.get("/app", (req, res) => {
+   res.sendFile(__dirname + '/app/app.js');
+});
+
 
 const port = 4000;
 
