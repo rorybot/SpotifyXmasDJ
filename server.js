@@ -2,22 +2,36 @@ const express = require('express');
 const server = express();
 const port = process.env.PORT || 4000;
 var _ = require('lodash');
+var client_id =  process.env.SPOTIFY_XMAS_ID; // Your client id
+var client_secret = process.env.SPOTIFY_XMAS_SECRET; // Your secret
+var stateKey = 'spotify_auth_state';
+var mustache = require('mustache');
 
-
-server.get("/json", (req, res) => {
-   res.json({ message: "Hello world" });
+server.get('/spotify_backend', (req, res) => {
+  res.send({
+    client_id: client_id,
+    client_secret: client_secret
+  });
 });
 
-// server.get("/", (req, res) => {
-//    res.sendFile(__dirname + '/client/public/index.html');
-// });
+server.get("/", (req, res) => {
+   res.sendFile(__dirname + '/public/index.html');
+});
+
+var view = {
+  title: "Joe",
+  calc: function () {
+    return 2 + 4;
+  }
+};
+
+var output = mustache.render("{{title}} spends {{calc}}", view);
+var template = "{{title}} spends {{calc}}";
 
 
-//
-// server.get('/spotify_auth', (req, res) => res.send({ username: process.env.XMAS_SPOTIFY_ID }));
 
-server.get('/express_backend', (req, res) => {
-  res.send({ express: 'YOUR EXPRESS BACKEND IS CONNECTED TO REACT!!' });
+server.get("/mustache", (req, res) => {
+      res.send(mustache.to_html(template, view));
 });
 
 
