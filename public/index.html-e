@@ -6,5 +6,6 @@
      <h1 style="color: green;">
         Hello world
      </h1>
+     <a href={{auth_url}}>Click me</a>
  </body>
 </html>

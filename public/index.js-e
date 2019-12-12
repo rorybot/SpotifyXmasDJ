@@ -1,4 +1,4 @@
-
+const mustache = require('mustache');
 
 var view = {
   title: "Joe",
