@@ -45,6 +45,34 @@ server.get("/spotify_backend", (req, res) => {
   });
 });
 
+function auth_token_query(callback) {
+  connection.query(
+    "SELECT * FROM users",
+    (error, users, fields) => {
+      if (error) {
+        throw error;
+      }
+      callback(users[0].auth_token);
+    }
+  );
+}
+server.get('/grab_playlist', (req,res) => {
+  auth_token_query(
+    function(auth_token){
+      access_token = auth_token;
+      console.log('auth is:' + auth_token);
+      var options = {
+        url: "https://api.spotify.com/v1/playlists/5xJCsb8Wv8y3MaH6OD3F8J/tracks",
+        headers: { Authorization: "Bearer " + access_token },
+        json: true
+      };
+      request.get(options, function(error, response, body) {
+        console.log(body);
+      });
+    }
+  );
+});
+
 server.get("/callback", function(req, res) {
   var code = req.query.code || null;
   var state = req.query.state || null;
@@ -83,7 +111,7 @@ server.get("/callback", function(req, res) {
         connection.query(
           "INSERT INTO users (id,email,auth_token,refresh_token) VALUES (?,?,?,?)",
           [user_id, user_email, access_token, refresh_token],
-          (error, todos, fields) => {
+          (error, users, fields) => {
             if (error) {
               console.error("An error in query");
               throw error;
