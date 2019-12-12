@@ -67,7 +67,23 @@ server.get('/grab_playlist', (req,res) => {
         json: true
       };
       request.get(options, function(error, response, body) {
-        console.log(body);
+        for(i=0;i<body.items.length;i++){
+          // console.log()
+          connection.query(
+            "INSERT INTO xmas_music (track_id,popularity) VALUES (?,?)",
+            [body.items[i].track.id,body.items[i].track.popularity],
+            (error, users, fields) => {
+              if (error) {
+                console.error("An error in query");
+                throw error;
+              }
+              console.log("Successful entry");
+            }
+          );
+        }
+        res.redirect(
+          "/#"
+        );
       });
     }
   );
