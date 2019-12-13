@@ -23,7 +23,7 @@ var view = {
     client_id +
     "&response_type=code&redirect_uri=" +
     redirect +
-    "&scope=user-read-private%20user-read-email"
+    "&scope=user-read-private%20user-read-email%20playlist-read-private%20playlist-modify-public%20playlist-read-collaborative%20playlist-modify-private%20user-library-modify%20user-library-read%20user-top-read"
 };
 var template = fs.readFileSync("./public/index.html", "utf8");
 
@@ -45,22 +45,22 @@ server.get("/spotify_backend", (req, res) => {
   });
 });
 
-function auth_token_query(callback) {
+function user_query(callback) {
   connection.query(
     "SELECT * FROM users",
     (error, users, fields) => {
       if (error) {
         throw error;
       }
-      callback(users[0].auth_token);
+      callback(users[0]);
     }
   );
 }
 server.get('/grab_playlist', (req,res) => {
-  auth_token_query(
+  user_query(
     function(auth_token){
-      access_token = auth_token;
-      console.log('auth is:' + auth_token);
+      access_token = auth_token.auth_token;
+      // console.log('auth is:' + auth_token);
       var options = {
         url: "https://api.spotify.com/v1/playlists/5xJCsb8Wv8y3MaH6OD3F8J/tracks",
         headers: { Authorization: "Bearer " + access_token },
@@ -88,6 +88,30 @@ server.get('/grab_playlist', (req,res) => {
     }
   );
 });
+
+server.get('/create_playlist',(req,res)=>{
+   // "https://api.spotify.com/v1/users/thelinmichael/playlists" -H "Authorization: Bearer {your access token}" -H "Content-Type: application/json" --data "{\"name\":\"A New Playlist\", \"public\":false}"
+
+   user_query(
+     function(auth_token){
+       access_token = auth_token.auth_token;
+       var authOptions = {
+         url: "https://api.spotify.com/v1/users/"+auth_token.id+"/playlists",
+         headers: { Authorization: "Bearer " + access_token },
+         json: {'name':'bob'}
+       };
+       request.post(authOptions,function(error, response, body){
+         console.log(response);
+         // console.log(error);
+         // console.log(body);
+       });
+     }
+
+   );
+   res.redirect(
+     "/#"
+   );
+})
 
 server.get("/callback", function(req, res) {
   var code = req.query.code || null;
@@ -150,7 +174,7 @@ server.get("/callback", function(req, res) {
 });
 
 server.get("/refresh_token", function(req, res) {
-  var refresh_token = req.query.refresh_token;
+  var refresh_token = 'AQDx44u074Wdfpn2biOcEUPpFlMNc3m3O6pmSq83fQ3LnR7glMgWMdSP1YURdDUfoNN3rnxhhOsaCQK2ZDcoMXNnhETHpyfB5HYmi1kuJjHmhM3aZqyd_voy0pRDRzofxaM';
   var authOptions = {
     url: "https://accounts.spotify.com/api/token",
     headers: {
@@ -165,14 +189,45 @@ server.get("/refresh_token", function(req, res) {
     json: true
   };
 
-  request.post(authOptions, function(error, response, body) {
-    if (!error && response.statusCode === 200) {
-      var access_token = body.access_token;
-      res.send({
-        access_token: access_token
-      });
+  function getNewAuthToken(callback){
+    connection.query(
+      "SELECT * FROM users",
+      (error, users, fields) => {
+        if (error) {
+          throw error;
+        }
+        user_id = (users[0].id);
+      }
+    );
+
+    request.post(authOptions, function(error, response, body) {
+      if (!error && response.statusCode === 200) {
+        var access_token = body.access_token;
+        callback(access_token,user_id);
+        console.log(body);
+      }
+    });
+  }
+
+  getNewAuthToken(
+    function(new_token,user_id){
+      connection.query(
+        "UPDATE users SET auth_token = ? WHERE id = ?",
+        [new_token,user_id],
+        (error, users, fields) => {
+          if (error) {
+            throw error;
+          }
+          console.log(users);
+        }
+      );
     }
-  });
+  );
+
+
+
+    res.redirect("/#")
+
 });
 
 server.listen(port, () => {
