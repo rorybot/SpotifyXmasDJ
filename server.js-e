@@ -16,7 +16,7 @@ var mustache = require("mustache");
 var fs = require("fs");
 var querystring = require("querystring");
 var request = require("request");
-var redirect = "https://cd524f14.ngrok.io/callback";
+var redirect = "https://ce6ba019.ngrok.io/callback";
 var view = {
   auth_url:
     "https://accounts.spotify.com/authorize?client_id=" +
@@ -90,8 +90,6 @@ server.get('/grab_playlist', (req,res) => {
 });
 
 server.get('/create_playlist',(req,res)=>{
-   // "https://api.spotify.com/v1/users/thelinmichael/playlists" -H "Authorization: Bearer {your access token}" -H "Content-Type: application/json" --data "{\"name\":\"A New Playlist\", \"public\":false}"
-
    user_query(
      function(auth_token){
        access_token = auth_token.auth_token;
@@ -101,9 +99,8 @@ server.get('/create_playlist',(req,res)=>{
          json: {'name':'bob'}
        };
        request.post(authOptions,function(error, response, body){
-         console.log(response);
-         // console.log(error);
-         // console.log(body);
+         console.log(body.id)
+           //store id to table
        });
      }
 
@@ -111,7 +108,27 @@ server.get('/create_playlist',(req,res)=>{
    res.redirect(
      "/#"
    );
-})
+});
+
+server.get('/populate_playlist',(req,res)=>{
+  user_query(
+    function(auth_token){
+      access_token = auth_token.auth_token;
+      var authOptions = {
+        url: "https://api.spotify.com/v1/users/"+auth_token.id+"/playlists",
+        headers: { Authorization: "Bearer " + access_token },
+        json: {'name':'bob'}
+      };
+      request.post(authOptions,function(error, response, body){
+        console.log(response.id);
+      });
+    }
+
+  );
+  res.redirect(
+    "/#"
+  );
+});
 
 server.get("/callback", function(req, res) {
   var code = req.query.code || null;
