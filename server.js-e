@@ -63,7 +63,7 @@ server.get('/grab_playlist', (req,res) => {
       access_token = auth_token.auth_token;
       // console.log('auth is:' + auth_token);
       var options = {
-        url: "https://api.spotify.com/v1/playlists/5xJCsb8Wv8y3MaH6OD3F8J/tracks",
+        url: "https://api.spotify.com/v1/playlists/"+req.query.playlistID+"/tracks",
         headers: { Authorization: "Bearer " + access_token },
         json: true
       };
@@ -136,23 +136,21 @@ server.get('/populate_playlist',(req,res)=>{
   );
 });
 
-server.get('/mix',(req,res)=>{
-  var mixer = new Mixer;
-  mixer.getSongs(connection,'xmas_music');
-  mixer.getSongs(connection,'regular_music');
-
-  // comsole.log(mixer.shuffle());
-
-  // tell mixer to mix
-  //get back list to screen
-  res.redirect(
-    "/#"
-  );
-})
 
 server.get('/shuffle',(req,res)=>{
-  comsole.log(mixer.shuffle());
+  var mixer = new Mixer;
 
+  var promises = [  mixer.getSongs(connection,'xmas_music'), mixer.getSongs(connection,'regular_music')];
+
+  Promise.all(promises).then(function(argument){
+    for(i = 0; i<argument.length-1 ;i++){
+      var allMusicArray = argument[i].concat(argument[i+1])
+    }
+    console.log(mixer.shuffle(allMusicArray))
+  })
+
+
+  // mixer.shuffle()
   // tell mixer to mix
   //get back list to screen
   res.redirect(

@@ -5,11 +5,9 @@ module.exports = class Mixer {
     this.xmasSongs = [];
     this.regularSongs = [];
     var self = this;
+    // console.log('new')
   }
 
-  helloWorld() {
-    return "Hello world!";
-  }
   shuffle(array) {
     var currentIndex = array.length,
       temporaryValue,
@@ -21,11 +19,14 @@ module.exports = class Mixer {
       array[currentIndex] = array[randomIndex];
       array[randomIndex] = temporaryValue;
     }
+    // console.log( this.xmasSongs)
+    // console.log(array)
+    // console.log(array)
     return array;
   }
 
   addSong(destination, song) {
-    var destinations = { xmas: this.xmasSongs, regular: this.regularSongs };
+    var destinations = { 'xmas': this.xmasSongs, 'regular': this.regularSongs };
 
     for (var key in destinations) {
       if (destination == key) {
@@ -34,21 +35,48 @@ module.exports = class Mixer {
     }
   }
 
-  getSongs(databaseConnection, table) {
+  getSongs(databaseConnection, table, callback = false) {
     var self = this;
+          return new Promise(function(resolve, reject) {
     databaseConnection.query(
       "SELECT * FROM " + table,
       (error, songs, fields) => {
-        if (error) {
+        if(error) {
+          reject(error)
           throw error;
         }
+        var i=0;
+
         songs.forEach(function(value) {
-          self.addSong("xmas", JSON.stringify(value));
-          console.log(self.xmasSongs);
-        });
+          i++;
+          if(table == 'xmas_music'){
+            self.addSong("xmas", JSON.stringify(value));
+            if(i == songs.length){
+              // console.log(self.xmasSongs.length)
+              return resolve(self.xmasSongs)
+              // return resolve(self)
+            }
+          } else if (table == 'regular_music'){
+            // console.log(self.regularSongs.length)
+            self.addSong("regular", JSON.stringify(value));
+            if(i == songs.length){
+              // console.log(self.regularSongs.length)
+              return resolve(self.regularSongs)
+              // return resolve(self)
+            }
+          }
+        })
+
+
+
       }
+
+
+
     );
+        });
   }
+
 };
 
 //Ranomdise them:
