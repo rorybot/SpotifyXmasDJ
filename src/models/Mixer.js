@@ -50,7 +50,7 @@ module.exports = class Mixer {
         songs.forEach(function(value) {
           i++;
           if(table == 'xmas_music'){
-            self.addSong("xmas", JSON.stringify(value));
+            self.addSong("xmas", value);
             if(i == songs.length){
               // console.log(self.xmasSongs.length)
               return resolve(self.xmasSongs)
@@ -58,7 +58,7 @@ module.exports = class Mixer {
             }
           } else if (table == 'regular_music'){
             // console.log(self.regularSongs.length)
-            self.addSong("regular", JSON.stringify(value));
+            self.addSong("regular", value);
             if(i == songs.length){
               // console.log(self.regularSongs.length)
               return resolve(self.regularSongs)
