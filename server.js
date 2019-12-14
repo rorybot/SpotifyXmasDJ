@@ -26,6 +26,7 @@ var view = {
     "&scope=user-read-private%20user-read-email%20playlist-read-private%20playlist-modify-public%20playlist-read-collaborative%20playlist-modify-private%20user-library-modify%20user-library-read%20user-top-read"
 };
 var template = fs.readFileSync("./public/index.html", "utf8");
+var Mixer = require('./src/models/Mixer.js');
 
 connection.connect(err => {
   if (err) {
@@ -134,6 +135,17 @@ server.get('/populate_playlist',(req,res)=>{
     "/#"
   );
 });
+
+server.get('/mix',(req,res)=>{
+  var mixer = new Mixer;
+  console.log(mixer.getSongs(connection,'xmas_music'))
+  //add each song to mixer
+  // tell mixer to mix
+  //get back list to screen
+  res.redirect(
+    "/#"
+  );
+})
 
 server.get("/callback", function(req, res) {
   var code = req.query.code || null;
