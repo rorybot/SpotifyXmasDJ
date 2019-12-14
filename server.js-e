@@ -16,7 +16,7 @@ var mustache = require("mustache");
 var fs = require("fs");
 var querystring = require("querystring");
 var request = require("request");
-var redirect = "https://ce6ba019.ngrok.io/callback";
+var redirect = "https://49824201.ngrok.io/callback";
 var view = {
   auth_url:
     "https://accounts.spotify.com/authorize?client_id=" +
@@ -68,11 +68,11 @@ server.get('/grab_playlist', (req,res) => {
         json: true
       };
       request.get(options, function(error, response, body) {
+                  console.log(response)
         for(i=0;i<body.items.length;i++){
-          // console.log()
           connection.query(
-            "INSERT INTO xmas_music (track_id,popularity) VALUES (?,?)",
-            [body.items[i].track.id,body.items[i].track.popularity],
+            "INSERT INTO ?? (track_id,popularity) VALUES (?,?)",
+            [req.query.table,body.items[i].track.id,body.items[i].track.popularity],
             (error, users, fields) => {
               if (error) {
                 console.error("An error in query");
@@ -138,8 +138,21 @@ server.get('/populate_playlist',(req,res)=>{
 
 server.get('/mix',(req,res)=>{
   var mixer = new Mixer;
-  console.log(mixer.getSongs(connection,'xmas_music'))
-  //add each song to mixer
+  mixer.getSongs(connection,'xmas_music');
+  mixer.getSongs(connection,'regular_music');
+
+  // comsole.log(mixer.shuffle());
+
+  // tell mixer to mix
+  //get back list to screen
+  res.redirect(
+    "/#"
+  );
+})
+
+server.get('/shuffle',(req,res)=>{
+  comsole.log(mixer.shuffle());
+
   // tell mixer to mix
   //get back list to screen
   res.redirect(
@@ -208,40 +221,51 @@ server.get("/callback", function(req, res) {
 });
 
 server.get("/refresh_token", function(req, res) {
-  var refresh_token = 'AQDx44u074Wdfpn2biOcEUPpFlMNc3m3O6pmSq83fQ3LnR7glMgWMdSP1YURdDUfoNN3rnxhhOsaCQK2ZDcoMXNnhETHpyfB5HYmi1kuJjHmhM3aZqyd_voy0pRDRzofxaM';
-  var authOptions = {
-    url: "https://accounts.spotify.com/api/token",
-    headers: {
-      Authorization:
-        "Basic " +
-        new Buffer(client_id + ":" + client_secret).toString("base64")
-    },
-    form: {
-      grant_type: "refresh_token",
-      refresh_token: refresh_token
-    },
-    json: true
-  };
+  // var refresh_token = 'AQDx44u074Wdfpn2biOcEUPpFlMNc3m3O6pmSq83fQ3LnR7glMgWMdSP1YURdDUfoNN3rnxhhOsaCQK2ZDcoMXNnhETHpyfB5HYmi1kuJjHmhM3aZqyd_voy0pRDRzofxaM';
+  // var authOptions = ;
 
   function getNewAuthToken(callback){
-    connection.query(
-      "SELECT * FROM users",
-      (error, users, fields) => {
-        if (error) {
-          throw error;
-        }
-        user_id = (users[0].id);
-      }
-    );
 
-    request.post(authOptions, function(error, response, body) {
-      if (!error && response.statusCode === 200) {
-        var access_token = body.access_token;
-        callback(access_token,user_id);
-        console.log(body);
-      }
-    });
+  return new Promise(function(resolve, reject) {
+      connection.query(
+        "SELECT * FROM users",
+        (error, users, fields) => {
+          if (error) {
+            console.log(error);
+            reject(error);
+          } else {
+              user_id = (users[0].id);
+              refresh_token = users[0].refresh_token;
+
+              resolve(
+                request.post({
+                  url: "https://accounts.spotify.com/api/token",
+                  headers: {
+                    Authorization:
+                      "Basic " +
+                      new Buffer(client_id + ":" + client_secret).toString("base64")
+                  },
+                  form: {
+                    grant_type: "refresh_token",
+                    refresh_token: users[0].refresh_token
+                  },
+                  json: true
+                }, function(error, response, body) {
+                if (!error && response.statusCode === 200) {
+                    console.log("BARG2000!");
+                  var access_token = body.access_token;
+                  callback(access_token,user_id);
+                  console.log(body);
+                }
+                })
+              )
+          }
+        }
+      );
+    })
+
   }
+
 
   getNewAuthToken(
     function(new_token,user_id){
