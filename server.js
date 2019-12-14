@@ -111,16 +111,21 @@ server.get('/create_playlist',(req,res)=>{
 });
 
 server.get('/populate_playlist',(req,res)=>{
+
+  //must be done 100 at a time
   user_query(
     function(auth_token){
       access_token = auth_token.auth_token;
+      var playlistID = "5nDj9vDRfOksHzrRlQFoYi";
       var authOptions = {
-        url: "https://api.spotify.com/v1/users/"+auth_token.id+"/playlists",
+        url: "https://api.spotify.com/v1/playlists/"+playlistID+"/tracks",
         headers: { Authorization: "Bearer " + access_token },
-        json: {'name':'bob'}
+        json:   {"uris": ["spotify:track:4iV5W9uYEdYUVa79Axb7Rh","spotify:track:1301WleyT98MSxVHPZCA6M"]}
+
+
       };
       request.post(authOptions,function(error, response, body){
-        console.log(response.id);
+        console.log(response);
       });
     }
 
