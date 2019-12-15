@@ -1,5 +1,6 @@
 const express = require("express");
 const server = express();
+const path = require("path");
 const mysql = require("mysql");
 const options = {
   user: "root",
@@ -36,9 +37,17 @@ connection.connect(err => {
   }
 });
 
-server.get("/", (req, res) => {
-  res.send(mustache.to_html(template, view));
+server.get("/index", (req, res) => {
+  // res.send(mustache.to_html(template, view));
+  // console.log(req.path)
+  res.sendFile(path.join(__dirname, './public/template'+req.path+'.html'));
 });
+
+server.use(express.static('public/template'))
+
+// server.get()
+
+
 
 server.get("/spotify_backend", (req, res) => {
   res.send({
