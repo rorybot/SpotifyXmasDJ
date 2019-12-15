@@ -5,7 +5,6 @@ module.exports = class Mixer {
     this.xmasSongs = [];
     this.regularSongs = [];
     var self = this;
-    // console.log('new')
   }
 
   shuffle(array) {
@@ -19,9 +18,6 @@ module.exports = class Mixer {
       array[currentIndex] = array[randomIndex];
       array[randomIndex] = temporaryValue;
     }
-    // console.log( this.xmasSongs)
-    // console.log(array)
-    // console.log(array)
     return array;
   }
 
@@ -52,17 +48,12 @@ module.exports = class Mixer {
             if (table == "xmas_music") {
               self.addSong("xmas", value);
               if (i == songs.length) {
-                // console.log(self.xmasSongs.length)
                 return resolve(self.xmasSongs);
-                // return resolve(self)
               }
             } else if (table == "regular_music") {
-              // console.log(self.regularSongs.length)
               self.addSong("regular", value);
               if (i == songs.length) {
-                // console.log(self.regularSongs.length)
                 return resolve(self.regularSongs);
-                // return resolve(self)
               }
             }
           });
@@ -71,7 +62,3 @@ module.exports = class Mixer {
     });
   }
 };
-
-//Ranomdise them:
-// - Create one long list
-// - Shuffle it
