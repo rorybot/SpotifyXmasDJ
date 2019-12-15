@@ -27,7 +27,7 @@ var view = {
 };
 var template = fs.readFileSync("./public/index.html", "utf8");
 var Mixer = require("./src/models/Mixer.js");
-var DBInsertion = require("./src/models/DBInsertion.js")
+var DBInsertion = require("./src/models/DBInsertion.js");
 
 connection.connect(err => {
   if (err) {
@@ -143,12 +143,11 @@ server.get("/shuffle", (req, res) => {
     }
     var mixedArray = mixer.shuffle(allMusicArray);
 
-      user_query(function(auth_token){
-        dbinsertion.createPlaylistMeta(auth_token.id).then(function(last_entry){
-          dbinsertion.insertMixedPlaylist(last_entry.insertId, mixedArray); 
-        })
-      })
-
+    user_query(function(auth_token) {
+      dbinsertion.createPlaylistMeta(auth_token.id).then(function(last_entry) {
+        dbinsertion.insertMixedPlaylist(last_entry.insertId, mixedArray);
+      });
+    });
   });
   res.send("Shuffled");
 });

@@ -26,7 +26,7 @@ module.exports = class Mixer {
   }
 
   addSong(destination, song) {
-    var destinations = { 'xmas': this.xmasSongs, 'regular': this.regularSongs };
+    var destinations = { xmas: this.xmasSongs, regular: this.regularSongs };
 
     for (var key in destinations) {
       if (destination == key) {
@@ -37,46 +37,39 @@ module.exports = class Mixer {
 
   getSongs(databaseConnection, table, callback = false) {
     var self = this;
-          return new Promise(function(resolve, reject) {
-    databaseConnection.query(
-      "SELECT * FROM " + table,
-      (error, songs, fields) => {
-        if(error) {
-          reject(error)
-          throw error;
-        }
-        var i=0;
-
-        songs.forEach(function(value) {
-          i++;
-          if(table == 'xmas_music'){
-            self.addSong("xmas", value);
-            if(i == songs.length){
-              // console.log(self.xmasSongs.length)
-              return resolve(self.xmasSongs)
-              // return resolve(self)
-            }
-          } else if (table == 'regular_music'){
-            // console.log(self.regularSongs.length)
-            self.addSong("regular", value);
-            if(i == songs.length){
-              // console.log(self.regularSongs.length)
-              return resolve(self.regularSongs)
-              // return resolve(self)
-            }
+    return new Promise(function(resolve, reject) {
+      databaseConnection.query(
+        "SELECT * FROM " + table,
+        (error, songs, fields) => {
+          if (error) {
+            reject(error);
+            throw error;
           }
-        })
+          var i = 0;
 
-
-
-      }
-
-
-
-    );
-        });
+          songs.forEach(function(value) {
+            i++;
+            if (table == "xmas_music") {
+              self.addSong("xmas", value);
+              if (i == songs.length) {
+                // console.log(self.xmasSongs.length)
+                return resolve(self.xmasSongs);
+                // return resolve(self)
+              }
+            } else if (table == "regular_music") {
+              // console.log(self.regularSongs.length)
+              self.addSong("regular", value);
+              if (i == songs.length) {
+                // console.log(self.regularSongs.length)
+                return resolve(self.regularSongs);
+                // return resolve(self)
+              }
+            }
+          });
+        }
+      );
+    });
   }
-
 };
 
 //Ranomdise them:
