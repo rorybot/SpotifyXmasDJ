@@ -16,7 +16,7 @@ var mustache = require("mustache");
 var fs = require("fs");
 var querystring = require("querystring");
 var request = require("request");
-var redirect = "https://49824201.ngrok.io/callback";
+var redirect = "https://5890b41e.ngrok.io/callback";
 var view = {
   auth_url:
     "https://accounts.spotify.com/authorize?client_id=" +
@@ -27,7 +27,7 @@ var view = {
 };
 var template = fs.readFileSync("./public/index.html", "utf8");
 var Mixer = require("./src/models/Mixer.js");
-var DBInsertion = require("./src/models/DBInsertion.js");
+var DBModel = require("./src/models/DBModel.js");
 
 connection.connect(err => {
   if (err) {
@@ -109,29 +109,66 @@ server.get("/create_playlist", (req, res) => {
 
 server.get("/populate_playlist", (req, res) => {
   //must be done 100 at a time
-  user_query(function(auth_token) {
-    access_token = auth_token.auth_token;
-    var playlistID = "5nDj9vDRfOksHzrRlQFoYi";
-    var authOptions = {
-      url: "https://api.spotify.com/v1/playlists/" + playlistID + "/tracks",
-      headers: { Authorization: "Bearer " + access_token },
-      json: {
-        uris: [
-          "spotify:track:4iV5W9uYEdYUVa79Axb7Rh",
-          "spotify:track:1301WleyT98MSxVHPZCA6M"
-        ]
-      }
-    };
-    request.post(authOptions, function(error, response, body) {
-      console.log(response);
+
+  function uploadChunkToSpotify(chunk) {
+    return new Promise(function(resolve, reject) {
+      user_query(function(auth_token) {
+        access_token = auth_token.auth_token;
+        var playlistID = "5nDj9vDRfOksHzrRlQFoYi";
+        var authOptions = {
+          url: "https://api.spotify.com/v1/playlists/" + playlistID + "/tracks",
+          headers: { Authorization: "Bearer " + access_token },
+          json: {
+            uris: chunk
+          }
+        };
+
+        request.post(authOptions, function(error, response, body) {
+          console.log(response);
+          if (error) {
+            console.log(error);
+            reject(error);
+          }
+
+          resolve(response);
+        });
+      });
     });
+  }
+
+  // **select playlist ID from meta table that matches current user name
+  // select first playlist ID from meta table
+  var dbModel = new DBModel();
+  dbModel.selectMixedPlaylistMeta("tenure").then(function(playlist_meta) {
+    dbModel
+      .selectMixedPlaylistTracks(playlist_meta[0].playlist_id)
+      .then(function(tracks) {
+        var trackNo = 1;
+        var loopNo = 1;
+        var uploadBuffer = [];
+        tracks.forEach(function(track) {
+          track = "spotify:track:" + track.track;
+          uploadBuffer.push(track);
+          if (
+            trackNo / 100 == loopNo ||
+            (tracks.length < 100 && trackNo == tracks.length)
+          ) {
+            uploadChunkToSpotify(uploadBuffer).then(function(response) {
+              res.send(uploadBuffer);
+              uploadBuffer = [];
+            });
+          } else {
+          }
+          trackNo++;
+          loopNo++;
+        });
+      });
   });
-  res.redirect("/#");
 });
 
 server.get("/shuffle", (req, res) => {
   var mixer = new Mixer();
-  var dbinsertion = new DBInsertion();
+  var dbModel = new DBModel();
   var promises = [
     mixer.getSongs(connection, "xmas_music"),
     mixer.getSongs(connection, "regular_music")
@@ -144,8 +181,8 @@ server.get("/shuffle", (req, res) => {
     var mixedArray = mixer.shuffle(allMusicArray);
 
     user_query(function(auth_token) {
-      dbinsertion.createPlaylistMeta(auth_token.id).then(function(last_entry) {
-        dbinsertion.insertMixedPlaylist(last_entry.insertId, mixedArray);
+      dbModel.createPlaylistMeta(auth_token.id).then(function(last_entry) {
+        dbModel.insertMixedPlaylist(last_entry.insertId, mixedArray);
       });
     });
   });
@@ -155,8 +192,6 @@ server.get("/shuffle", (req, res) => {
 server.get("/callback", function(req, res) {
   var code = req.query.code || null;
   var state = req.query.state || null;
-  // var storedState = req.cookies ? req.cookies[stateKey] : null;
-  // res.clearCookie(stateKey);
   var authOptions = {
     url: "https://accounts.spotify.com/api/token",
     form: {
@@ -213,9 +248,6 @@ server.get("/callback", function(req, res) {
 });
 
 server.get("/refresh_token", function(req, res) {
-  // var refresh_token = 'AQDx44u074Wdfpn2biOcEUPpFlMNc3m3O6pmSq83fQ3LnR7glMgWMdSP1YURdDUfoNN3rnxhhOsaCQK2ZDcoMXNnhETHpyfB5HYmi1kuJjHmhM3aZqyd_voy0pRDRzofxaM';
-  // var authOptions = ;
-
   function getNewAuthToken(callback) {
     return new Promise(function(resolve, reject) {
       connection.query("SELECT * FROM users", (error, users, fields) => {

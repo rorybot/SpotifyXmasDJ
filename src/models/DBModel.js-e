@@ -6,7 +6,7 @@ const options = {
 };
 const connection = mysql.createConnection(options);
 
-module.exports = class DBInsertion {
+module.exports = class DBModel {
   constructor() {}
 
   createPlaylistMeta(user) {
@@ -40,16 +40,35 @@ module.exports = class DBInsertion {
     });
   }
 
-  selectMixedPlaylistMeta(){
-    connection.query(
-      "SELECT * FROM mixed_playlist_meta WHERE playlist_id = ?",
-      ['40'],
-      (error, new_playlist, fields) => {
-        if (error) {
-          throw error;
+  selectMixedPlaylistMeta(user){
+    return new Promise(function(resolve, reject) {
+      connection.query(
+        "SELECT * FROM mixed_playlist_meta WHERE user = ?",
+        [user],
+        (error, playlist_meta, fields) => {
+          if (error) {
+            reject(error);
+          }
+
+          resolve((playlist_meta));
         }
-        return JSON.stringify(new_playlist);
-      }
-    );
+      );
+    })
+  }
+
+  selectMixedPlaylistTracks(meta_id){
+    return new Promise(function(resolve, reject) {
+      connection.query(
+        "SELECT * FROM mixed_playlist WHERE playlist_id = ?",
+        [meta_id],
+        (error, playlist_tracks, fields) => {
+          if (error) {
+            reject(error);
+          }
+
+          resolve((playlist_tracks));
+        }
+      );
+    });
   }
 };
