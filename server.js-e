@@ -22,6 +22,10 @@ var fs = require("fs");
 var querystring = require("querystring");
 var request = require("request");
 var redirect = "https://5890b41e.ngrok.io/callback";
+var template = fs.readFileSync("./public/template/index.html", "utf8");
+var Mixer = require("./src/models/Mixer.js");
+var DBModel = require("./src/models/DBModel.js");
+
 var view = {
   auth_url:
     "https://accounts.spotify.com/authorize?client_id=" +
@@ -30,9 +34,6 @@ var view = {
     redirect +
     "&scope=user-read-private%20user-read-email%20playlist-read-private%20playlist-modify-public%20playlist-read-collaborative%20playlist-modify-private%20user-library-modify%20user-library-read%20user-top-read"
 };
-var template = fs.readFileSync("./public/template/index.html", "utf8");
-var Mixer = require("./src/models/Mixer.js");
-var DBModel = require("./src/models/DBModel.js");
 
 connection.connect(err => {
   if (err) {
@@ -43,11 +44,13 @@ connection.connect(err => {
 
 server.get("/", (req, res) => {
   // authenticate
+
   if(req.cookies.authenticated){
     // console.log()
 
       console.log('Authenticated')
       view.display_on_auth = 'display:none';
+      //Move this responsibiltiy to a view-adjacent js file
       //Need to send a reauthentication link if missing
       res.send(mustache.to_html(template, view));
   } else {
@@ -68,15 +71,14 @@ server.get("/", (req, res) => {
 // });
 
 
-  function getNewAuthToken(callback) {
-
+  function getNewAuthToken(callback,user) {
     return new Promise(function(resolve, reject) {
       connection.query("SELECT * FROM users", (error, users, fields) => {
         if (error) {
           console.log(error);
           reject(error);
         } else {
-          user_id = users[0].id;
+          user_id = user;
           refresh_token = users[0].refresh_token;
 
           resolve(
@@ -98,6 +100,7 @@ server.get("/", (req, res) => {
               },
               function(error, response, body) {
                 if (!error && response.statusCode === 200) {
+                  console.log(body.access_token)
                   var access_token = body.access_token;
                   callback(access_token, user_id);
                   // console.log(body);
@@ -131,40 +134,59 @@ function user_query(callback) {
 }
 
 server.get("/all_playlists", (req, res) => {
+
+  //This should really be an internal api requesrt which sends data to be parsed by a view-model
   // console.log('auth is:' + auth_token);
+  var playlistArray = [];
+  user_id = req.cookies.authenticated;
   user_query(function(auth_token) {
     access_token = auth_token.auth_token;
     var options = {
-      url: "https://api.spotify.com/v1/users/{user_id}/playlists",
+      url: "https://api.spotify.com/v1/users/"+user_id+"/playlists",
       headers: { Authorization: "Bearer " + access_token },
       json: true
     };
-    request.get(options, function(error, response, body) {
-      // console.log(response)
-      if(body.error && body.error.message == 'The access token expired'){
-        // console.log(response)
-        getNewAuthToken(function(new_token, user_id) {
-          console.log("BOBOBOB")
-          connection.query(
-            "UPDATE users SET auth_token = ? WHERE id = ?",
-            [new_token, user_id],
-            (error, users, fields) => {
-              if (error) {
-                console.log(error)
-                throw error;
-              }
-              console.log(users);
-              // console.log("going to: " + '/' + referer)
-              res.redirect('/all_playlists')
-            }
-          );
-        });
-      } else {
-            // console.log(body.error)
-            res.redirect('/')
-      }
 
-    });
+    function getPlaylistsFromURL(supplied_options){
+      request.get(supplied_options, function(error, response, body) {
+        if(body.error && body.error.message == 'The access token expired'){
+          getNewAuthToken(function(new_token, user_id) {
+            connection.query(
+              "UPDATE users SET auth_token = ? WHERE id = ?",
+              [new_token, user_id],
+              (error, users, fields) => {
+                if (error) {
+                  throw error;
+                }
+                res.redirect('/all_playlists')
+              }
+            );
+          });
+        } else {
+          body.items.forEach(function(playlist){
+            playlistArray.push(
+              `${playlist.external_urls.spotify}   ${playlist.id}   ${playlist.name}`
+            )
+
+          })
+          view.playlistList =  '';
+          if(body.next){
+                options.url = body.next
+                getPlaylistsFromURL(options);
+          } else {
+            //
+            playlistArray.forEach(function(playlist){
+              // view.playlist_list + playlist;
+              view.playlistList += `<p>${playlist}<p>`
+
+            })
+            console.log('test change')
+            res.send(mustache.to_html(template, view));
+          }
+        }
+      });
+    }
+    getPlaylistsFromURL(options);
 
     // res.redirect("/#");
   });
