@@ -2,6 +2,10 @@ const express = require("express");
 const server = express();
 const path = require("path");
 const mysql = require("mysql");
+const url = require('url');
+const session = require('express-session');
+const cookieParser = require('cookie-parser');
+server.use(cookieParser())
 const options = {
   user: "root",
   password: "",
@@ -38,16 +42,77 @@ connection.connect(err => {
 });
 
 server.get("/", (req, res) => {
-  res.send(mustache.to_html(template, view));
+  // authenticate
+  if(req.cookies.authenticated){
+    // console.log()
+
+      console.log('Authenticated')
+      view.display_on_auth = 'display:none';
+      //Need to send a reauthentication link if missing
+      res.send(mustache.to_html(template, view));
+  } else {
+      res.send(mustache.to_html(template, view));
+  }
+
   // console.log(req.path)
   // res.sendFile(path.join(__dirname, './public/template'+req.path+'.html'));
+
 });
 
-server.use(express.static('public/template'))
+//
+// server.get("/12345", (req, res) => {
+//   res.send("<a href='/'>bob</a>");
+//   // console.log(req.path)
+//   // res.sendFile(path.join(__dirname, './public/template'+req.path+'.html'));
+//   // console.log(req)
+// });
+
+
+  function getNewAuthToken(callback) {
+
+    return new Promise(function(resolve, reject) {
+      connection.query("SELECT * FROM users", (error, users, fields) => {
+        if (error) {
+          console.log(error);
+          reject(error);
+        } else {
+          user_id = users[0].id;
+          refresh_token = users[0].refresh_token;
+
+          resolve(
+            request.post(
+              {
+                url: "https://accounts.spotify.com/api/token",
+                headers: {
+                  Authorization:
+                    "Basic " +
+                    new Buffer(client_id + ":" + client_secret).toString(
+                      "base64"
+                    )
+                },
+                form: {
+                  grant_type: "refresh_token",
+                  refresh_token: users[0].refresh_token
+                },
+                json: true
+              },
+              function(error, response, body) {
+                if (!error && response.statusCode === 200) {
+                  var access_token = body.access_token;
+                  callback(access_token, user_id);
+                  // console.log(body);
+                }
+              }
+            )
+          );
+        }
+      });
+    });
+  }
+
+server.use(express.static("public/template"));
 
 // server.get()
-
-
 
 server.get("/spotify_backend", (req, res) => {
   res.send({
@@ -64,6 +129,47 @@ function user_query(callback) {
     callback(users[0]);
   });
 }
+
+server.get("/all_playlists", (req, res) => {
+  // console.log('auth is:' + auth_token);
+  user_query(function(auth_token) {
+    access_token = auth_token.auth_token;
+    var options = {
+      url: "https://api.spotify.com/v1/users/{user_id}/playlists",
+      headers: { Authorization: "Bearer " + access_token },
+      json: true
+    };
+    request.get(options, function(error, response, body) {
+      // console.log(response)
+      if(body.error && body.error.message == 'The access token expired'){
+        // console.log(response)
+        getNewAuthToken(function(new_token, user_id) {
+          console.log("BOBOBOB")
+          connection.query(
+            "UPDATE users SET auth_token = ? WHERE id = ?",
+            [new_token, user_id],
+            (error, users, fields) => {
+              if (error) {
+                console.log(error)
+                throw error;
+              }
+              console.log(users);
+              // console.log("going to: " + '/' + referer)
+              res.redirect('/all_playlists')
+            }
+          );
+        });
+      } else {
+            // console.log(body.error)
+            res.redirect('/')
+      }
+
+    });
+
+    // res.redirect("/#");
+  });
+});
+
 server.get("/grab_playlist", (req, res) => {
   user_query(function(auth_token) {
     access_token = auth_token.auth_token;
@@ -239,12 +345,14 @@ server.get("/callback", function(req, res) {
               console.error("An error in query");
               throw error;
             }
+            console.log(user_id)
+            res.cookie('authenticated', user_id, {maxAge: 31536000000})
+            res.redirect("/#work");
             console.log("Successful entry");
           }
         );
       }
       userQuery(storeUserData);
-      res.redirect("/#work");
     } else {
       res.redirect(
         "/#" +
@@ -256,64 +364,12 @@ server.get("/callback", function(req, res) {
   });
 });
 
-server.get("/refresh_token", function(req, res) {
-  function getNewAuthToken(callback) {
-    return new Promise(function(resolve, reject) {
-      connection.query("SELECT * FROM users", (error, users, fields) => {
-        if (error) {
-          console.log(error);
-          reject(error);
-        } else {
-          user_id = users[0].id;
-          refresh_token = users[0].refresh_token;
+// server.get("/refresh_token", function(req, res) {
 
-          resolve(
-            request.post(
-              {
-                url: "https://accounts.spotify.com/api/token",
-                headers: {
-                  Authorization:
-                    "Basic " +
-                    new Buffer(client_id + ":" + client_secret).toString(
-                      "base64"
-                    )
-                },
-                form: {
-                  grant_type: "refresh_token",
-                  refresh_token: users[0].refresh_token
-                },
-                json: true
-              },
-              function(error, response, body) {
-                if (!error && response.statusCode === 200) {
-                  console.log("BARG2000!");
-                  var access_token = body.access_token;
-                  callback(access_token, user_id);
-                  console.log(body);
-                }
-              }
-            )
-          );
-        }
-      });
-    });
-  }
 
-  getNewAuthToken(function(new_token, user_id) {
-    connection.query(
-      "UPDATE users SET auth_token = ? WHERE id = ?",
-      [new_token, user_id],
-      (error, users, fields) => {
-        if (error) {
-          throw error;
-        }
-        console.log(users);
-      }
-    );
-  });
 
-  res.redirect("/#");
-});
+  // res.redirect('/');
+// });
 
 server.listen(port, () => {
   var naughty_or_nice = ["Naughty", "Nice"];

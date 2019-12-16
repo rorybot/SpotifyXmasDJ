@@ -34,7 +34,7 @@
 									<!-- <a id='clickme' href=>Click me</a> -->
 									<img class='spotify-logo' src="images/Spotify_Icon_RGB_Green.png" alt="" /><h1 class='spotify-title'>Spotify Xmas DJ</h1>
 									<p>When you don't want <i>every</i> song to be a christmas song</p>
-									<p class='spotify-button'><a href="{{auth_url}}">Get started</a></p>
+									<button class='spotify-button' style="{{display_on_auth}}" onclick="window.location.href = '{{auth_url}}';">Get started</button>
 
 								</header>
 								<a href="#work" class="jumplink pic">
