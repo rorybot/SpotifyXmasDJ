@@ -26,7 +26,7 @@ var view = {
     redirect +
     "&scope=user-read-private%20user-read-email%20playlist-read-private%20playlist-modify-public%20playlist-read-collaborative%20playlist-modify-private%20user-library-modify%20user-library-read%20user-top-read"
 };
-var template = fs.readFileSync("./public/index.html", "utf8");
+var template = fs.readFileSync("./public/template/index.html", "utf8");
 var Mixer = require("./src/models/Mixer.js");
 var DBModel = require("./src/models/DBModel.js");
 
@@ -37,10 +37,10 @@ connection.connect(err => {
   }
 });
 
-server.get("/index", (req, res) => {
-  // res.send(mustache.to_html(template, view));
+server.get("/", (req, res) => {
+  res.send(mustache.to_html(template, view));
   // console.log(req.path)
-  res.sendFile(path.join(__dirname, './public/template'+req.path+'.html'));
+  // res.sendFile(path.join(__dirname, './public/template'+req.path+'.html'));
 });
 
 server.use(express.static('public/template'))
@@ -244,7 +244,7 @@ server.get("/callback", function(req, res) {
         );
       }
       userQuery(storeUserData);
-      res.redirect("/#");
+      res.redirect("/#work");
     } else {
       res.redirect(
         "/#" +
