@@ -11,6 +11,8 @@
 		<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no" />
 		<link rel="stylesheet" href="assets/css/main.css" />
 		<noscript><link rel="stylesheet" href="assets/css/noscript.css" /></noscript>
+		<script src="assets/js/jquery.min.js"></script>
+
 	</head>
 	<body class="is-preload">
 
@@ -46,12 +48,22 @@
 						<!-- Work -->
 							<article id="work" class="panel">
 								<header>
-									<h2>Select Your Playlists</h2>
+									<h2>Select The Playlists You Want Mixed</h2>
 								</header>
 								<p>
-									{{{playlistList}}}
+									<form id='playlistMixer' name='playlistMixer' action='/submitPlaylists' method='post'>
+										<select id="regularPlaylistSelector" multiple="multiple" size="10" style='width:100%' form='playlistMixer' name='playlistsToUse'>
+										{{{playlistList}}}
+										</select>
+											If you don't have a Christmas playlist you want mixed in, click here to have one chosen for you
+											<input type='checkbox' name='supplyXmas' value='supplyXmas'>
+											<input type="submit" value="submit">
+									</form>
 								</p>
-								<section>
+
+
+
+								<!-- <section>
 									<div class="row">
 										<div class="col-4 col-6-medium col-12-small">
 											<a href="#" class="image fit"><img src="images/pic01.jpg" alt=""></a>
@@ -90,7 +102,7 @@
 											<a href="#" class="image fit"><img src="images/pic12.jpg" alt=""></a>
 										</div>
 									</div>
-								</section>
+								</section> -->
 							</article>
 
 						<!-- Contact -->
@@ -133,7 +145,7 @@
 			</div>
 
 		<!-- Scripts -->
-			<script src="assets/js/jquery.min.js"></script>
+
 			<script src="assets/js/browser.min.js"></script>
 			<script src="assets/js/breakpoints.min.js"></script>
 			<script src="assets/js/util.js"></script>
