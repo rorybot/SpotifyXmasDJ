@@ -144,19 +144,6 @@ function getNewAuthToken(user, callback) {
 
 server.use(express.static("public/template"));
 
-// server.get()
-
-server.get("/spotify_backend", (req, res) => {
-  res.send({
-    client_id: client_id,
-    client_secret: client_secret
-  });
-});
-
-server.get("/all_playlists", (req, res) => {
-  //This should really be an internal api requesrt which sends data to be parsed by a view-model
-});
-
 function user_query(userID = false, callback) {
   connection.query(
     "SELECT * FROM users WHERE id = ?",
@@ -176,6 +163,7 @@ function testTokenForRefresh(userID) {
     user_query(userID, function(usersDBObject) {
       access_token = usersDBObject[0].auth_token;
       user_id = usersDBObject[0].id;
+      unique_id = usersDBObject[0].unique_id;
       var options = {
         url: "https://api.spotify.com/v1/searchq=test&type=album",
         headers: { Authorization: "Bearer " + access_token },
@@ -199,18 +187,13 @@ function testTokenForRefresh(userID) {
             );
           });
         } else {
-          resolve({ id: user_id, auth_token: access_token });
+          console.log(usersDBObject)
+          resolve({ id: user_id, auth_token: access_token, unique_id: unique_id });
         }
       });
     });
   });
 }
-
-server.get("/testTokenForRefresh", (req, res) => {
-  testTokenForRefresh(req.cookies.authenticated).then(function(result) {
-    res.send(result);
-  });
-});
 
 server.post("/submitPlaylists", (req, res) => {
   testTokenForRefresh(req.cookies.authenticated).then(function(user) {
@@ -231,12 +214,12 @@ server.post("/submitPlaylists", (req, res) => {
       console.log(response);
       for (i = 0; i < body.items.length; i++) {
         connection.query(
-          "INSERT INTO ?? (track_id,popularity,user_unique_id) VALUES (?,?,?)",
+          "INSERT INTO ?? (track_id,popularity,user_id) VALUES (?,?,?)",
           [
             table,
             body.items[i].track.id,
             body.items[i].track.popularity,
-            user.unique_id
+            user.id
           ],
           (error, users, fields) => {
             if (error) {
@@ -250,7 +233,7 @@ server.post("/submitPlaylists", (req, res) => {
     });
   }
 
-  res.send("got");
+  res.redirect("/#contact");
 });
 
 server.get("/grab_playlist", (req, res) => {});
