@@ -152,7 +152,7 @@ function user_query(userID = false, callback) {
       if (error) {
         throw error;
       }
-      console.log("User is: " + users + "got from: " + userID);
+      // console.log("User is: " + users + "got from: " + userID);
       callback(users);
     }
   );
@@ -177,7 +177,7 @@ function testTokenForRefresh(userID) {
               [new_token, user_id],
               (error, users, fields) => {
                 if (error) {
-                  console.log(error);
+                  // console.log(error);
                   reject(error);
                   // throw error;
                 }
@@ -187,7 +187,7 @@ function testTokenForRefresh(userID) {
             );
           });
         } else {
-          console.log(usersDBObject)
+          // console.log(usersDBObject)
           resolve({ id: user_id, auth_token: access_token, unique_id: unique_id });
         }
       });
@@ -197,7 +197,11 @@ function testTokenForRefresh(userID) {
 
 server.post("/submitPlaylists", (req, res) => {
   testTokenForRefresh(req.cookies.authenticated).then(function(user) {
-    req.body.playlistsToUse.forEach(function(playlistID) {
+    var playlistsToUse = req.body.playlistsToUse;
+    if(typeof playlistsToUse === 'string'){
+      playlistsToUse = [playlistsToUse];
+    }
+    playlistsToUse.forEach(function(playlistID) {
       return grabPlaylistFromSpotify(user, "xmas_music", playlistID);
     });
   });
@@ -211,30 +215,57 @@ server.post("/submitPlaylists", (req, res) => {
       json: true
     };
     request.get(options, function(error, response, body) {
-      console.log(response);
-      for (i = 0; i < body.items.length; i++) {
-        connection.query(
-          "INSERT INTO ?? (track_id,popularity,user_id) VALUES (?,?,?)",
-          [
-            table,
-            body.items[i].track.id,
-            body.items[i].track.popularity,
-            user.id
-          ],
-          (error, users, fields) => {
-            if (error) {
-              console.error("An error in query");
-              throw error;
-            }
-            console.log("Successful entry");
-          }
-        );
+      // console.log(response);
+      console.log(body.items.length)
+      entries = [];
+      for (var i = 0; i < body.items.length; i++) {
+        var entry = [user.id];
+        entry.push(body.items[i].track.id);
+        entry.push(body.items[i].track.popularity);
+        entries.push(entry);
       }
+      console.log(entries)
+      connection.query(
+        "INSERT INTO ?? (user_id,track_id,popularity) VALUES ?",
+        [table,entries],
+        (error, users, fields) => {
+          if (error) {
+            console.error("An error in query");
+            throw error;
+          }
+          mixMusic(user.id)
+          console.log("Successful entry");
+        }
+      );
     });
   }
 
+
   res.redirect("/#contact");
 });
+
+
+function mixMusic(userID){
+  var mixer = new Mixer();
+  var dbModel = new DBModel();
+  var promises = [
+    mixer.getSongs(connection, "xmas_music"),
+    mixer.getSongs(connection, "regular_music")
+  ];
+
+  Promise.all(promises).then(function(argument) {
+    for (i = 0; i < argument.length - 1; i++) {
+      var allMusicArray = argument[i].concat(argument[i + 1]);
+    }
+    var mixedArray = mixer.shuffle(allMusicArray);
+
+    user_query(userID, function(auth_token) {
+      dbModel.createPlaylistMeta(auth_token.id).then(function(last_entry) {
+        dbModel.insertMixedPlaylist(last_entry.insertId, mixedArray);
+      });
+    });
+  });
+}
 
 server.get("/grab_playlist", (req, res) => {});
 
@@ -314,25 +345,8 @@ server.get("/populate_playlist", (req, res) => {
 });
 
 server.get("/shuffle", (req, res) => {
-  var mixer = new Mixer();
-  var dbModel = new DBModel();
-  var promises = [
-    mixer.getSongs(connection, "xmas_music"),
-    mixer.getSongs(connection, "regular_music")
-  ];
 
-  Promise.all(promises).then(function(argument) {
-    for (i = 0; i < argument.length - 1; i++) {
-      var allMusicArray = argument[i].concat(argument[i + 1]);
-    }
-    var mixedArray = mixer.shuffle(allMusicArray);
 
-    user_query(function(auth_token) {
-      dbModel.createPlaylistMeta(auth_token.id).then(function(last_entry) {
-        dbModel.insertMixedPlaylist(last_entry.insertId, mixedArray);
-      });
-    });
-  });
   res.send("Shuffled");
 });
 
