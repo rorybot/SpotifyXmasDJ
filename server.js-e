@@ -85,7 +85,30 @@ server.get("/", (req, res) => {
               playlist.name
             }</option>`;
           });
-          res.send(mustache.to_html(template, view));
+
+          // function checkForMixedPlaylist(userID,callback){
+          //   var query = connection.query(
+          //     "SELECT * FROM mixed_playlist LEFT JOIN mixed_playlist_meta ON mixed_playlist.playlist_id = mixed_playlist_meta.playlist_id WHERE mixed_playlist_meta.user = ?",
+          //     [userID],
+          //     (error, playlists, fields) => {
+          //       if (error) {
+          //         console.log(error)
+          //         throw error;
+          //       }
+          //       // console.log("User is: " + users + "got from: " + userID);
+          //       // console.log(playlists)
+          //       // view.mixedPlaylist = playlists[0].playlist_id;
+          //       return callback(playlists);
+          //     }
+          //   );
+          //   // console.log(query.sql)
+          // }
+          // checkForMixedPlaylist(req.cookies.authenticated, function(playlists){
+            // view.mixedPlaylist = playlists[0].track
+            res.send(mustache.to_html(template, view));
+          // });
+
+
         }
       });
     }
@@ -201,12 +224,31 @@ server.post("/submitPlaylists", (req, res) => {
     if(typeof playlistsToUse === 'string'){
       playlistsToUse = [playlistsToUse];
     }
+
+    var playlistNo = 0
+    var entries = [];
     playlistsToUse.forEach(function(playlistID) {
-      return grabPlaylistFromSpotify(user, "xmas_music", playlistID);
+      grabPlaylistTracksFromSpotify(user, playlistID,entries, function(){
+        playlistNo++;
+        if(playlistNo == playlistsToUse.length){
+          connection.query(
+            "INSERT INTO ?? (user_id,track_id,popularity) VALUES ?",
+            ["xmas_music",entries],
+            (error, users, fields) => {
+              if (error) {
+                console.error("An error in query");
+                throw error;
+              }
+              console.log("Successful entry");
+              mixMusic(user.id)
+            }
+          );
+        }
+      });
     });
   });
 
-  function grabPlaylistFromSpotify(user, table, playlistID) {
+  function grabPlaylistTracksFromSpotify(user, playlistID,entries,callback = false) {
     access_token = user.auth_token;
     // console.log('auth is:' + auth_token);
     var options = {
@@ -217,32 +259,26 @@ server.post("/submitPlaylists", (req, res) => {
     request.get(options, function(error, response, body) {
       // console.log(response);
       console.log(body.items.length)
-      entries = [];
       for (var i = 0; i < body.items.length; i++) {
         var entry = [user.id];
         entry.push(body.items[i].track.id);
         entry.push(body.items[i].track.popularity);
         entries.push(entry);
       }
-      console.log(entries)
-      connection.query(
-        "INSERT INTO ?? (user_id,track_id,popularity) VALUES ?",
-        [table,entries],
-        (error, users, fields) => {
-          if (error) {
-            console.error("An error in query");
-            throw error;
-          }
-          mixMusic(user.id)
-          console.log("Successful entry");
-        }
-      );
+
+      if(response){
+        console.log(entries)
+        callback()
+      }
+
     });
   }
-
-
   res.redirect("/#contact");
 });
+
+server.get('/newPlaylistPage', (req,res) => {
+
+})
 
 
 function mixMusic(userID){
@@ -253,37 +289,64 @@ function mixMusic(userID){
     mixer.getSongs(connection, "regular_music")
   ];
 
+  console.log("Called #1")
+  console.log(promises)
   Promise.all(promises).then(function(argument) {
-    for (i = 0; i < argument.length - 1; i++) {
-      var allMusicArray = argument[i].concat(argument[i + 1]);
+    console.log("Called #1.5")
+    var allMusicArray = argument;
+    if(promises.length > 1){
+      for (i = 0; i < argument.length - 1; i++) {
+        allMusicArray = argument[i].concat(argument[i + 1]);
+          console.log("Called #2")
+      }
     }
+      console.log("Called #3")
     var mixedArray = mixer.shuffle(allMusicArray);
-
-    user_query(userID, function(auth_token) {
-      dbModel.createPlaylistMeta(auth_token.id).then(function(last_entry) {
-        dbModel.insertMixedPlaylist(last_entry.insertId, mixedArray);
+    testTokenForRefresh(userID).then(function(user){
+        console.log("Called #4")
+      dbModel.createPlaylistMeta(user.id).then(function(last_entry) {
+        var newMixedPlaylist = dbModel.insertMixedPlaylist(last_entry.insertId, mixedArray);
+        console.log(newMixedPlaylist);
       });
-    });
+    })
   });
 }
 
 server.get("/grab_playlist", (req, res) => {});
 
-server.get("/create_playlist", (req, res) => {
-  user_query(function(auth_token) {
-    access_token = auth_token.auth_token;
+
+
+server.post("/createPlaylist", (req,res)=>{
+  userID = req.cookies.authenticated;
+  playlistName = req.body.playlistName;
+  testTokenForRefresh(userID).then(function(user){
+    access_token = user.auth_token;
     var authOptions = {
-      url: "https://api.spotify.com/v1/users/" + auth_token.id + "/playlists",
+      url: "https://api.spotify.com/v1/users/" + userID + "/playlists",
       headers: { Authorization: "Bearer " + access_token },
-      json: { name: "bob" }
+      json: { name: playlistName }
     };
+
     request.post(authOptions, function(error, response, body) {
-      console.log(body.id);
-      //store id to table
+      connection.query(
+        "UPDATE mixed_playlist_meta SET playlist_url = ? WHERE user = ?",
+        [body.external_urls.spotify,userID],
+        (error, users, fields) => {
+          if (error) {
+            console.error("An error in query");
+            throw error;
+          }
+          // mixMusic(user.id)
+          console.log("Successful entry");
+        }
+      );
+      console.log(body)
+      view.newPlaylistURL = body.external_urls.spotify;
+      res.redirect('/#playlistCreated')
     });
-  });
-  res.redirect("/#");
-});
+  })
+
+})
 
 server.get("/populate_playlist", (req, res) => {
   //must be done 100 at a time
