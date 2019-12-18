@@ -25,7 +25,6 @@ module.exports = class DBModel {
   }
 
   insertMixedPlaylist(playlistID, allMusicArray) {
-    console.log(allMusicArray);
     allMusicArray.forEach(function(song) {
       connection.query(
         "INSERT INTO mixed_playlist (track,popularity,playlist_id) VALUES (?,?,?)",
