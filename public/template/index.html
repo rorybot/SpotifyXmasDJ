@@ -108,29 +108,43 @@
 						<!-- Contact -->
 							<article id="contact" class="panel">
 								<header>
-									<h2>Your New Playlist</h2>
+									<h2>Name your playlist</h2>
 								</header>
-								<form action="#" method="post">
+								<form id='createPlaylist' name='createPlaylist' action='/createPlaylist' method='post'>
 									<div>
 										<div class="row">
 											<div class="col-6 col-12-medium">
-												<input type="text" name="name" placeholder="Name" />
-											</div>
-											<div class="col-6 col-12-medium">
-												<input type="text" name="email" placeholder="Email" />
+												<input type="text" name="playlistName" placeholder="Name" />
 											</div>
 											<div class="col-12">
-												<input type="text" name="subject" placeholder="Subject" />
-											</div>
-											<div class="col-12">
-												<textarea name="message" placeholder="Message" rows="6"></textarea>
-											</div>
-											<div class="col-12">
-												<input type="submit" value="Send Message" />
+												<input type="submit" value="Create playlist" />
 											</div>
 										</div>
 									</div>
 								</form>
+
+								{{{mixedPlaylist}}}
+							</article>
+
+							<article id="playlistCreated" class="panel">
+								<header>
+									<h2>It's done!</h2>
+									{{newPlaylistURL}}
+								</header>
+								<!-- <form id='createPlaylist' name='createPlaylist' action='/createPlaylist' method='post'>
+									<div>
+										<div class="row">
+											<div class="col-6 col-12-medium">
+												<input type="text" name="playlistName" placeholder="Name" />
+											</div>
+											<div class="col-12">
+												<input type="submit" value="Create playlist" />
+											</div>
+										</div>
+									</div>
+								</form> -->
+
+								<!-- {{{mixedPlaylist}}} -->
 							</article>
 
 					</div>
