@@ -33,27 +33,33 @@ module.exports = class Mixer {
 
   getSongs(databaseConnection, table, callback = false) {
     var self = this;
+
     return new Promise(function(resolve, reject) {
       databaseConnection.query(
         "SELECT * FROM " + table,
         (error, songs, fields) => {
           if (error) {
+
             reject(error);
             throw error;
           }
-          var i = 0;
 
+          var i = 0;
+          if(songs.length == 0){
+             resolve(self.regularSongs);
+          };
           songs.forEach(function(value) {
             i++;
             if (table == "xmas_music") {
               self.addSong("xmas", value);
               if (i == songs.length) {
-                return resolve(self.xmasSongs);
+                 resolve(self.xmasSongs);
               }
-            } else if (table == "regular_music") {
+            }
+            if (table == "regular_music") {
               self.addSong("regular", value);
-              if (i == songs.length) {
-                return resolve(self.regularSongs);
+              if (i == songs.length ) {
+                 resolve(self.regularSongs);
               }
             }
           });
