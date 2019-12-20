@@ -15,18 +15,19 @@ const options = {
 };
 const connection = mysql.createConnection(options);
 const port = process.env.PORT || 4000;
-var _ = require("lodash");
+const _ = require("lodash");
 const client_id = process.env.SPOTIFY_XMAS_ID; // Your client id
 const client_secret = process.env.SPOTIFY_XMAS_SECRET; // Your secret
 // var stateKey = 'spotify_auth_state';
-var mustache = require("mustache");
-var fs = require("fs");
+const mustache = require("mustache");
+const fs = require("fs");
 var querystring = require("querystring");
-var request = require("request");
+const request = require("request");
 var redirect = "https://5890b41e.ngrok.io/callback";
 var template = fs.readFileSync("./public/template/index.html", "utf8");
-var Mixer = require("./src/models/Mixer.js");
-var DBModel = require("./src/models/DBModel.js");
+const Mixer = require("./src/models/Mixer.js");
+const DBModel = require("./src/models/DBModel.js");
+const SpotifyAPI = require("./src/models/spotifyAPI.js");
 
 var view = {
   auth_url:
@@ -47,122 +48,96 @@ connection.connect(err => {
 server.use(bodyParser.json());
 server.use(bodyParser.urlencoded({ extended: true }));
 
+
+function getPlaylistsFromURL(supplied_options,playlistArray,callback=false) {
+  request.get(supplied_options, function(error, response, body) {
+    body.items.forEach(function(playlist) {
+      playlistArray.push({
+        url: `${playlist.external_urls.spotify} `,
+        name: `${playlist.name} `,
+        id: `${playlist.id}`
+      });
+    });
+    view.playlistList = "";
+    if (body.next) {
+      supplied_options.url = body.next;
+      getPlaylistsFromURL(supplied_options,playlistArray,callback);
+    } else {
+      //
+      playlistArray.forEach(function(playlist) {
+        view.playlistList += `<option value='${playlist.id}' >${
+          playlist.name
+        }</option>`;
+      });
+      callback();
+    }
+  });
+}
+
 server.get("/", (req, res) => {
   if (req.cookies.authenticated) {
     console.log("Authenticated");
-    view.display_on_auth = "display:none";
+
     //Move this responsibiltiy to a view-adjacent js file
     //Need to send a reauthentication link if missing
     var playlistArray = [];
     testTokenForRefresh(req.cookies.authenticated).then(function(user) {
-      access_token = user.auth_token;
-      user_id = user.id;
-      var options = {
-        url: "https://api.spotify.com/v1/users/" + user_id + "/playlists",
-        headers: { Authorization: "Bearer " + access_token },
-        json: true
-      };
-      getPlaylistsFromURL(options);
-    });
-
-    function getPlaylistsFromURL(supplied_options) {
-      request.get(supplied_options, function(error, response, body) {
-        body.items.forEach(function(playlist) {
-          playlistArray.push({
-            url: `${playlist.external_urls.spotify} `,
-            name: `${playlist.name} `,
-            id: `${playlist.id}`
-          });
+      if(user){
+        access_token = user.auth_token;
+        user_id = user.id;
+        var options = {
+          url: "https://api.spotify.com/v1/users/" + user_id + "/playlists",
+          headers: { Authorization: "Bearer " + access_token },
+          json: true
+        };
+        view.display_on_auth = "display:none";
+        getPlaylistsFromURL(options,playlistArray, function(){
+          res.send(mustache.to_html(template, view));
         });
-        view.playlistList = "";
-        if (body.next) {
-          supplied_options.url = body.next;
-          getPlaylistsFromURL(supplied_options);
-        } else {
-          //
-          playlistArray.forEach(function(playlist) {
-            view.playlistList += `<option value='${playlist.id}' >${
-              playlist.name
-            }</option>`;
-          });
-
-          // function checkForMixedPlaylist(userID,callback){
-          //   var query = connection.query(
-          //     "SELECT * FROM mixed_playlist LEFT JOIN mixed_playlist_meta ON mixed_playlist.playlist_id = mixed_playlist_meta.playlist_id WHERE mixed_playlist_meta.user = ?",
-          //     [userID],
-          //     (error, playlists, fields) => {
-          //       if (error) {
-          //         console.log(error)
-          //         throw error;
-          //       }
-          //       // console.log("User is: " + users + "got from: " + userID);
-          //       // console.log(playlists)
-          //       // view.mixedPlaylist = playlists[0].playlist_id;
-          //       return callback(playlists);
-          //     }
-          //   );
-          //   // console.log(query.sql)
-          // }
-          // checkForMixedPlaylist(req.cookies.authenticated, function(playlists){
-            // view.mixedPlaylist = playlists[0].track
-            res.send(mustache.to_html(template, view));
-          // });
-
-
-        }
-      });
-    }
-    // res.send(mustache.to_html(template, view));
+      } else {
+        res.send(mustache.to_html(template, view));
+      }
+    });
   } else {
     res.send(mustache.to_html(template, view));
   }
 });
 
-function getNewAuthToken(user, callback) {
-  return new Promise(function(resolve, reject) {
-    console.log("I've been supplied: " + user);
-    connection.query(
-      "SELECT * FROM users WHERE id = ?",
-      [user],
-      (error, users, fields) => {
-        if (error) {
-          console.log(error);
-          reject(error);
-        } else {
-          user_id = user;
-          refresh_token = users.refresh_token;
-
-          resolve(
-            request.post(
-              {
-                url: "https://accounts.spotify.com/api/token",
-                headers: {
-                  Authorization:
-                    "Basic " +
-                    new Buffer(client_id + ":" + client_secret).toString(
-                      "base64"
-                    )
-                },
-                form: {
-                  grant_type: "refresh_token",
-                  refresh_token: users[0].refresh_token
-                },
-                json: true
-              },
-              function(error, response, body) {
-                if (!error && response.statusCode === 200) {
-                  console.log(body.access_token);
-                  var access_token = body.access_token;
-                  callback(access_token, user_id);
-                  // console.log(body);
-                }
-              }
-            )
-          );
-        }
-      }
-    );
-  });
+function getNewAuthToken(userID, refreshToken) {
+  // return new Promise(function(resolve, reject) {
+    console.log("I've been supplied: " + userID);
+    // connection.query(
+      // "SELECT * FROM users WHERE id = ?",
+      // [userID],
+      // (error, users, fields) => {
+        // if (error) {
+        //   console.log(error);
+        //   reject(error);
+        // } else {
+          // refreshToken = users.refresh_token;
+          // resolve(
+            var spotifyAPI = new SpotifyAPI(request);
+            spotifyAPI.refreshAccessToken(refreshToken,client_id,client_secret).then(function(newToken){
+              uploadNewTokenToDB(newToken,userID);
+              // Which is..... resolves into that user thing -- this all needs to be promissary
+              return new Promise(function(resolve, reject) {
+                connection.query(
+                  "UPDATE users SET auth_token = ? WHERE id = ?",
+                  [newToken, userID],
+                  (error, users, fields) => {
+                    if (error) {
+                      reject(error);
+                    }
+                    resolve(newToken);
+                  }
+                );
+              });
+            })
+          // );
+        // }
+      // }
+    // );
+  // });
 }
 
 server.use(express.static("public/template"));
@@ -175,8 +150,11 @@ function user_query(userID = false, callback) {
       if (error) {
         throw error;
       }
-      // console.log("User is: " + users + "got from: " + userID);
-      callback(users);
+      if(users.length > 0){
+        callback(users);
+      } else {
+        callback(false);
+      }
     }
   );
 }
@@ -184,36 +162,22 @@ function user_query(userID = false, callback) {
 function testTokenForRefresh(userID) {
   return new Promise(function(resolve, reject) {
     user_query(userID, function(usersDBObject) {
-      access_token = usersDBObject[0].auth_token;
-      user_id = usersDBObject[0].id;
-      unique_id = usersDBObject[0].unique_id;
-      var options = {
-        url: "https://api.spotify.com/v1/searchq=test&type=album",
-        headers: { Authorization: "Bearer " + access_token },
-        json: true
-      };
-      request.get(options, function(error, response, body) {
-        if (body.error && body.error.message == "The access token expired") {
-          getNewAuthToken(user_id, function(new_token, user_id) {
-            var last_query = connection.query(
-              "UPDATE users SET auth_token = ? WHERE id = ?",
-              [new_token, user_id],
-              (error, users, fields) => {
-                if (error) {
-                  // console.log(error);
-                  reject(error);
-                  // throw error;
-                }
-                // console.log(fields)
-                resolve({ id: user_id, auth_token: new_token });
-              }
-            );
-          });
+      if(!usersDBObject){
+        return resolve(false);
+      }
+      accessToken = usersDBObject[0].auth_token;
+      userID = usersDBObject[0].id;
+      uniqueID = usersDBObject[0].unique_id;
+      refreshToken = usersDBObject[0].refresh_token;
+
+      var spotifyAPI = new SpotifyAPI(request);
+      spotifyAPI.testTokenValidity(accessToken).then(function(valid){
+        if(valid){
+          resolve({ id: userID, auth_token: accessToken, unique_id: uniqueID });
         } else {
-          // console.log(usersDBObject)
-          resolve({ id: user_id, auth_token: access_token, unique_id: unique_id });
+          resolve({id: userID, auth_token: getNewAuthToken(userID,refreshToken), unique_id: uniqueID});
         }
-      });
+      })
     });
   });
 }
@@ -224,11 +188,12 @@ server.post("/submitPlaylists", (req, res) => {
     if(typeof playlistsToUse === 'string'){
       playlistsToUse = [playlistsToUse];
     }
-
     var playlistNo = 0
     var entries = [];
+    var spotifyAPI = new SpotifyAPI(request);
+
     playlistsToUse.forEach(function(playlistID) {
-      grabPlaylistTracksFromSpotify(user, playlistID,entries, function(){
+      spotifyAPI.grabPlaylistTracks(user, playlistID,entries, function(){
         playlistNo++;
         if(playlistNo == playlistsToUse.length){
           connection.query(
@@ -248,31 +213,6 @@ server.post("/submitPlaylists", (req, res) => {
     });
   });
 
-  function grabPlaylistTracksFromSpotify(user, playlistID,entries,callback = false) {
-    access_token = user.auth_token;
-    // console.log('auth is:' + auth_token);
-    var options = {
-      url: "https://api.spotify.com/v1/playlists/" + playlistID + "/tracks",
-      headers: { Authorization: "Bearer " + access_token },
-      json: true
-    };
-    request.get(options, function(error, response, body) {
-      // console.log(response);
-      console.log(body.items.length)
-      for (var i = 0; i < body.items.length; i++) {
-        var entry = [user.id];
-        entry.push(body.items[i].track.id);
-        entry.push(body.items[i].track.popularity);
-        entries.push(entry);
-      }
-
-      if(response){
-        console.log(entries)
-        callback()
-      }
-
-    });
-  }
   res.redirect("/#contact");
 });
 
@@ -288,25 +228,17 @@ function mixMusic(userID){
     mixer.getSongs(connection, "xmas_music"),
     mixer.getSongs(connection, "regular_music")
   ];
-
-  console.log("Called #1")
-  console.log(promises)
   Promise.all(promises).then(function(argument) {
-    console.log("Called #1.5")
     var allMusicArray = argument;
     if(promises.length > 1){
       for (i = 0; i < argument.length - 1; i++) {
         allMusicArray = argument[i].concat(argument[i + 1]);
-          console.log("Called #2")
       }
     }
-      console.log("Called #3")
     var mixedArray = mixer.shuffle(allMusicArray);
     testTokenForRefresh(userID).then(function(user){
-        console.log("Called #4")
       dbModel.createPlaylistMeta(user.id).then(function(last_entry) {
         var newMixedPlaylist = dbModel.insertMixedPlaylist(last_entry.insertId, mixedArray);
-        console.log(newMixedPlaylist);
       });
     })
   });
@@ -319,99 +251,50 @@ server.get("/grab_playlist", (req, res) => {});
 server.post("/createPlaylist", (req,res)=>{
   userID = req.cookies.authenticated;
   playlistName = req.body.playlistName;
+  // console.log(req.body)
   testTokenForRefresh(userID).then(function(user){
-    access_token = user.auth_token;
-    var authOptions = {
-      url: "https://api.spotify.com/v1/users/" + userID + "/playlists",
-      headers: { Authorization: "Bearer " + access_token },
-      json: { name: playlistName }
-    };
+    accessToken = user.auth_token;
 
-    request.post(authOptions, function(error, response, body) {
+    spotifyAPI = new SpotifyAPI(request);
+    spotifyAPI.createPlaylist(accessToken).then(function(playlistData){
+      var playlistID = playlistData.id;
+      var newPlaylistURL = playlistData.external_urls.spotify
+      var dbModel = new DBModel();
+      view.newPlaylistURL = newPlaylistURL;
       connection.query(
         "UPDATE mixed_playlist_meta SET playlist_url = ? WHERE user = ?",
-        [body.external_urls.spotify,userID],
+        [newPlaylistURL,userID],
         (error, users, fields) => {
           if (error) {
             console.error("An error in query");
             throw error;
           }
-          // mixMusic(user.id)
           console.log("Successful entry");
         }
       );
-      console.log(body)
-      view.newPlaylistURL = body.external_urls.spotify;
+
+      dbModel.selectMixedPlaylistMeta(userID).then(function(playlist_meta) {
+        dbModel
+          .selectMixedPlaylistTracks(playlist_meta[0].playlist_id)
+          .then(
+            // function(tracks) {
+
+          // }
+          spotifyAPI.uploadTracks(tracks)
+
+          );
+      });
+
+
+    })
+
+
       res.redirect('/#playlistCreated')
-    });
+
   })
 
 })
 
-server.get("/populate_playlist", (req, res) => {
-  //must be done 100 at a time
-
-  function uploadChunkToSpotify(chunk) {
-    return new Promise(function(resolve, reject) {
-      user_query(function(auth_token) {
-        access_token = auth_token.auth_token;
-        var playlistID = "5nDj9vDRfOksHzrRlQFoYi";
-        var authOptions = {
-          url: "https://api.spotify.com/v1/playlists/" + playlistID + "/tracks",
-          headers: { Authorization: "Bearer " + access_token },
-          json: {
-            uris: chunk
-          }
-        };
-
-        request.post(authOptions, function(error, response, body) {
-          console.log(response);
-          if (error) {
-            console.log(error);
-            reject(error);
-          }
-
-          resolve(response);
-        });
-      });
-    });
-  }
-
-  // **select playlist ID from meta table that matches current user name
-  // select first playlist ID from meta table
-  var dbModel = new DBModel();
-  dbModel.selectMixedPlaylistMeta("tenure").then(function(playlist_meta) {
-    dbModel
-      .selectMixedPlaylistTracks(playlist_meta[0].playlist_id)
-      .then(function(tracks) {
-        var trackNo = 1;
-        var loopNo = 1;
-        var uploadBuffer = [];
-        tracks.forEach(function(track) {
-          track = "spotify:track:" + track.track;
-          uploadBuffer.push(track);
-          if (
-            trackNo / 100 == loopNo ||
-            (tracks.length < 100 && trackNo == tracks.length)
-          ) {
-            uploadChunkToSpotify(uploadBuffer).then(function(response) {
-              res.send(uploadBuffer);
-              uploadBuffer = [];
-            });
-          } else {
-          }
-          trackNo++;
-          loopNo++;
-        });
-      });
-  });
-});
-
-server.get("/shuffle", (req, res) => {
-
-
-  res.send("Shuffled");
-});
 
 server.get("/callback", function(req, res) {
   var code = req.query.code || null;
@@ -472,11 +355,6 @@ server.get("/callback", function(req, res) {
     }
   });
 });
-
-// server.get("/refresh_token", function(req, res) {
-
-// res.redirect('/');
-// });
 
 server.listen(port, () => {
   var naughty_or_nice = ["Naughty", "Nice"];
