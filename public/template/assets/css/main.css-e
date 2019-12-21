@@ -1355,9 +1355,10 @@ input, select, textarea {
 	}
 
 	body {
-		background-image: url("images/overlay.png"), url("images/bg.jpg");
-		background-repeat: repeat, no-repeat;
-		background-size: auto, 100% 100%;
+		background-image: url(images/xmas-bg-pic-Mel-Poole-Unsplash.jpeg);
+		background-repeat: no-repeat;
+		background-size: cover;
+		background-position-y: -10vw;
 		background-attachment: fixed;
 		overflow-y: scroll;
 	}
