@@ -187,18 +187,22 @@ server.post("/submitPlaylists", (req, res) => {
               }
               console.log("Successful entry");
               mixMusic(user.id)
+              res.redirect("/mix?mixed=" + user.id);
             }
           );
         }
       });
     });
   });
-
-  res.redirect("/#contact");
 });
 
-server.get('/newPlaylistPage', (req,res) => {
-
+server.get('/mix', (req,res) => {
+  // Cookie for user needs to be encrypted form of username, which then stored alongisde name in database, and used for comparison when used in queries like this
+  if(req.query.mixed && req.query.mixed == req.cookies.authenticated){
+      res.redirect("/#Mix");
+  } else {
+      res.redirect('/');
+  }
 })
 
 
