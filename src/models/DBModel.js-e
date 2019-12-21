@@ -9,6 +9,54 @@ const connection = mysql.createConnection(options);
 module.exports = class DBModel {
   constructor() {}
 
+  userQuery(userID = false){
+    return new Promise(function(resolve, reject) {
+      connection.query(
+        "SELECT * FROM users WHERE id = ?",
+        [userID],
+        (error, users, fields) => {
+          if (error) {
+            throw error;
+          }
+          if(users.length > 0){
+            resolve(users);
+          } else {
+            resolve(false);
+          }
+        }
+      );
+    });
+  }
+
+  uploadNewTokenToDB(newToken,userID){
+    connection.query(
+      "UPDATE users SET auth_token = ? WHERE id = ?",
+      [newToken, userID],
+      (error, users, fields) => {
+        if (error) {
+          console.log(error);
+        }
+      }
+    );
+  }
+
+  storeUserData(userID, userEmail){
+    connection.query(
+      "INSERT INTO users (id,email,auth_token,refresh_token) VALUES (?,?,?,?)",
+      [user_id, user_email, access_token, refresh_token],
+      (error, users, fields) => {
+        if (error) {
+          console.error("An error in query");
+          throw error;
+        }
+        console.log(user_id);
+        res.cookie("authenticated", user_id, { maxAge: 31536000000 });
+        res.redirect("/#work");
+        console.log("Successful entry");
+      }
+    );
+  }
+
   createPlaylistMeta(user) {
     return new Promise(function(resolve, reject) {
       connection.query(

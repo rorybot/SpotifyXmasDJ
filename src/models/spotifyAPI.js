@@ -1,13 +1,28 @@
 module.exports = class SpotifyAPI {
   constructor(requestModule) {
     this.request = requestModule;
-    var self = this;
     //run token refresh check on creation, and then set as this.accessToken
     //instead of calling playlist all the time, just set the last stored one to session
     // only store the one found when first visiting index, and only perform a new lookup if...when?
   }
 
-  uploadTracks(tracks){
+  userQuery(body){
+    var self = this;
+    return new Promise(function(resolve, reject) {
+      var access_token = body.access_token;
+      var refresh_token = body.refresh_token;
+      var options = {
+        url: "https://api.spotify.com/v1/me",
+        headers: { Authorization: "Bearer " + access_token },
+        json: true
+      };
+      self.request.get(options, function(error, response, body) {
+       resolve(body);
+      });
+    });
+  }
+
+  uploadTracks(tracks,playlistID){
     var self = this;
     var trackNo = 1;
     var loopNo = 1;
@@ -41,10 +56,13 @@ module.exports = class SpotifyAPI {
           }
         };
         self.request.post(authOptions, function(error, response, body) {
-          console.log(response);
+          // console.log(response);
           if (error) {
-            console.log(error);
             reject(error);
+          }
+          if(body.error){
+            console.log(body.error);
+            console.log(playlistID)
           }
           resolve(response);
         });
@@ -52,6 +70,7 @@ module.exports = class SpotifyAPI {
   }
 
   grabPlaylistTracksFromSpotify(user,playlistID,entries,callback = false) {
+    var self = this;
     access_token = user.auth_token;
     // console.log('auth is:' + auth_token);
     var options = {
@@ -70,7 +89,7 @@ module.exports = class SpotifyAPI {
       }
 
       if(response){
-        console.log(entries)
+        // console.log(entries)
         callback()
       }
 
@@ -78,6 +97,7 @@ module.exports = class SpotifyAPI {
   }
 
   refreshAccessToken(refreshToken,clientID,clientSecret){
+    var self = this;
     return new Promise(function(resolve, reject) {
       self.request.post(
         {
@@ -109,14 +129,15 @@ module.exports = class SpotifyAPI {
   }
 
   testTokenValidity(accessToken){
+    var self = this;
     return new Promise(function(resolve, reject) {
       var options = {
         url: "https://api.spotify.com/v1/searchq=test&type=album",
         headers: { Authorization: "Bearer " + accessToken },
         json: true
       };
-      request.get(options, function(error, response, body) {
-        if (body.error && body.error.message == "The access token expired") {
+      self.request.get(options, function(error, response, body) {
+        if (body.error && body.error.status == 401) {
           resolve(false);
         } else {
           resolve(true);
@@ -126,17 +147,19 @@ module.exports = class SpotifyAPI {
   }
 
   createPlaylist(accessToken){
-    new Promise(function(resolve, reject) {
+    var self = this;
+    return new Promise(function(resolve, reject) {
       var authOptions = {
         url: "https://api.spotify.com/v1/users/" + userID + "/playlists",
         headers: { Authorization: "Bearer " + accessToken },
         json: { name: playlistName }
       };
-      request.post(authOptions, function(error, response, body) {
+      self.request.post(authOptions, function(error, response, body) {
         if(error){
           reject(error);
         } else {
           resolve(body);
+          console.log(body)
         }
       })
     });

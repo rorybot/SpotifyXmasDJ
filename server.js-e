@@ -27,6 +27,7 @@ var redirect = "https://5890b41e.ngrok.io/callback";
 var template = fs.readFileSync("./public/template/index.html", "utf8");
 const Mixer = require("./src/models/Mixer.js");
 const DBModel = require("./src/models/DBModel.js");
+var dbModel = new DBModel();
 const SpotifyAPI = require("./src/models/spotifyAPI.js");
 
 var view = {
@@ -48,9 +49,36 @@ connection.connect(err => {
 server.use(bodyParser.json());
 server.use(bodyParser.urlencoded({ extended: true }));
 
+function testTokenForRefresh(userID) {
+  return new Promise(function(resolve, reject) {
+                                      // console.log(Object.getOwnPropertyNames(DBModel.prototype))
+    dbModel.userQuery(userID).then(function(usersDBObject){
+    if(!usersDBObject){
+      return resolve(false);
+    }
+    accessToken = usersDBObject[0].auth_token;
+    userID = usersDBObject[0].id;
+    uniqueID = usersDBObject[0].unique_id;
+    refreshToken = usersDBObject[0].refresh_token;
+
+    var spotifyAPI = new SpotifyAPI(request);
+    spotifyAPI.testTokenValidity(accessToken).then(function(valid){
+      if(valid){
+        resolve({ id: userID, auth_token: accessToken, unique_id: uniqueID });
+      } else {
+        getNewAuthToken(userID,refreshToken).then(function(){
+          resolve({id: userID, auth_token: getNewAuthToken(), unique_id: uniqueID});
+        })
+      }
+    })
+  })
+  });
+}
 
 function getPlaylistsFromURL(supplied_options,playlistArray,callback=false) {
   request.get(supplied_options, function(error, response, body) {
+    // console.log(body)
+    // console.log(error)
     body.items.forEach(function(playlist) {
       playlistArray.push({
         url: `${playlist.external_urls.spotify} `,
@@ -106,6 +134,7 @@ server.get("/", (req, res) => {
 function getNewAuthToken(userID, refreshToken) {
   // return new Promise(function(resolve, reject) {
     console.log("I've been supplied: " + userID);
+                  return new Promise(function(resolve, reject) {
     // connection.query(
       // "SELECT * FROM users WHERE id = ?",
       // [userID],
@@ -118,21 +147,12 @@ function getNewAuthToken(userID, refreshToken) {
           // resolve(
             var spotifyAPI = new SpotifyAPI(request);
             spotifyAPI.refreshAccessToken(refreshToken,client_id,client_secret).then(function(newToken){
-              uploadNewTokenToDB(newToken,userID);
-              // Which is..... resolves into that user thing -- this all needs to be promissary
-              return new Promise(function(resolve, reject) {
-                connection.query(
-                  "UPDATE users SET auth_token = ? WHERE id = ?",
-                  [newToken, userID],
-                  (error, users, fields) => {
-                    if (error) {
-                      reject(error);
-                    }
-                    resolve(newToken);
-                  }
-                );
-              });
+              dbModel.uploadNewTokenToDB(newToken,userID);
+              resolve(newToken)
             })
+
+
+                      });
           // );
         // }
       // }
@@ -142,45 +162,6 @@ function getNewAuthToken(userID, refreshToken) {
 
 server.use(express.static("public/template"));
 
-function user_query(userID = false, callback) {
-  connection.query(
-    "SELECT * FROM users WHERE id = ?",
-    [userID],
-    (error, users, fields) => {
-      if (error) {
-        throw error;
-      }
-      if(users.length > 0){
-        callback(users);
-      } else {
-        callback(false);
-      }
-    }
-  );
-}
-
-function testTokenForRefresh(userID) {
-  return new Promise(function(resolve, reject) {
-    user_query(userID, function(usersDBObject) {
-      if(!usersDBObject){
-        return resolve(false);
-      }
-      accessToken = usersDBObject[0].auth_token;
-      userID = usersDBObject[0].id;
-      uniqueID = usersDBObject[0].unique_id;
-      refreshToken = usersDBObject[0].refresh_token;
-
-      var spotifyAPI = new SpotifyAPI(request);
-      spotifyAPI.testTokenValidity(accessToken).then(function(valid){
-        if(valid){
-          resolve({ id: userID, auth_token: accessToken, unique_id: uniqueID });
-        } else {
-          resolve({id: userID, auth_token: getNewAuthToken(userID,refreshToken), unique_id: uniqueID});
-        }
-      })
-    });
-  });
-}
 
 server.post("/submitPlaylists", (req, res) => {
   testTokenForRefresh(req.cookies.authenticated).then(function(user) {
@@ -223,7 +204,6 @@ server.get('/newPlaylistPage', (req,res) => {
 
 function mixMusic(userID){
   var mixer = new Mixer();
-  var dbModel = new DBModel();
   var promises = [
     mixer.getSongs(connection, "xmas_music"),
     mixer.getSongs(connection, "regular_music")
@@ -257,9 +237,8 @@ server.post("/createPlaylist", (req,res)=>{
 
     spotifyAPI = new SpotifyAPI(request);
     spotifyAPI.createPlaylist(accessToken).then(function(playlistData){
-      var playlistID = playlistData.id;
+      var spotifyPlaylistID = playlistData.id;
       var newPlaylistURL = playlistData.external_urls.spotify
-      var dbModel = new DBModel();
       view.newPlaylistURL = newPlaylistURL;
       connection.query(
         "UPDATE mixed_playlist_meta SET playlist_url = ? WHERE user = ?",
@@ -270,19 +249,12 @@ server.post("/createPlaylist", (req,res)=>{
             throw error;
           }
           console.log("Successful entry");
-        }
-      );
+      });
 
-      dbModel.selectMixedPlaylistMeta(userID).then(function(playlist_meta) {
-        dbModel
-          .selectMixedPlaylistTracks(playlist_meta[0].playlist_id)
-          .then(
-            // function(tracks) {
-
-          // }
-          spotifyAPI.uploadTracks(tracks)
-
-          );
+      dbModel.selectMixedPlaylistMeta(userID).then(function(playlistMeta) {
+        dbModel.selectMixedPlaylistTracks(playlistMeta[0].playlist_id).then(function(tracks) {
+            spotifyAPI.uploadTracks(tracks,spotifyPlaylistID)
+          });
       });
 
 
@@ -297,6 +269,7 @@ server.post("/createPlaylist", (req,res)=>{
 
 
 server.get("/callback", function(req, res) {
+  var spotifyAPI = new SpotifyAPI(request);
   var code = req.query.code || null;
   var state = req.query.state || null;
   var authOptions = {
@@ -316,35 +289,11 @@ server.get("/callback", function(req, res) {
 
   request.post(authOptions, function(error, response, body) {
     if (!error && response.statusCode === 200) {
-      var access_token = body.access_token;
-      var refresh_token = body.refresh_token;
-      var options = {
-        url: "https://api.spotify.com/v1/me",
-        headers: { Authorization: "Bearer " + access_token },
-        json: true
-      };
-      function userQuery(callback) {
-        request.get(options, function(error, response, body) {
-          callback(body.id, body.email);
-        });
-      }
-      function storeUserData(user_id, user_email) {
-        connection.query(
-          "INSERT INTO users (id,email,auth_token,refresh_token) VALUES (?,?,?,?)",
-          [user_id, user_email, access_token, refresh_token],
-          (error, users, fields) => {
-            if (error) {
-              console.error("An error in query");
-              throw error;
-            }
-            console.log(user_id);
-            res.cookie("authenticated", user_id, { maxAge: 31536000000 });
-            res.redirect("/#work");
-            console.log("Successful entry");
-          }
-        );
-      }
-      userQuery(storeUserData);
+      spotifyAPI.userQuery(body).then(function(returnedUserData){
+        dbModel.storeUserData(returnedUserData.userID, returnedUserData.userEmail)
+      });
+
+
     } else {
       res.redirect(
         "/#" +
