@@ -132,7 +132,7 @@ module.exports = class SpotifyAPI {
     var self = this;
     return new Promise(function(resolve, reject) {
       var options = {
-        url: "https://api.spotify.com/v1/searchq=test&type=album",
+        url: "https://api.spotify.com/v1/search?q=test&type=album",
         headers: { Authorization: "Bearer " + accessToken },
         json: true
       };
@@ -140,6 +140,8 @@ module.exports = class SpotifyAPI {
         if (body.error && body.error.status == 401) {
           resolve(false);
         } else {
+          // console.log(body)
+          // console.log(response)
           resolve(true);
         }
       });
