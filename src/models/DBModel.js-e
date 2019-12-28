@@ -118,4 +118,32 @@ module.exports = class DBModel {
       );
     });
   }
+
+  updateMixedPlaylistURL(newPlaylistURL, userID){
+    connection.query(
+      "UPDATE mixed_playlist_meta SET playlist_url = ? WHERE user = ?",
+      [newPlaylistURL, userID],
+      (error, users, fields) => {
+        if (error) {
+          console.error("An error in query");
+          throw error;
+        }
+        console.log("Successful entry");
+      }
+    );
+  }
+  insertMusicIntoXmasMusicTable(entries,callback=false){
+    connection.query(
+      "INSERT INTO ?? (user_id,track_id,popularity) VALUES ?",
+      ["xmas_music", entries],
+      (error, users, fields) => {
+        if (error) {
+          console.error("An error in query");
+          throw error;
+        }
+        console.log("Successful entry");
+        callback()
+      }
+    );
+  }
 };

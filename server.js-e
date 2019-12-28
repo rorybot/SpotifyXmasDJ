@@ -26,9 +26,11 @@ const request = require("request");
 var redirect = "https://5890b41e.ngrok.io/callback";
 var template = fs.readFileSync("./public/template/index.html", "utf8");
 const Mixer = require("./src/models/Mixer.js");
+const mixer = new Mixer();
 const DBModel = require("./src/models/DBModel.js");
-var dbModel = new DBModel();
+const dbModel = new DBModel();
 const SpotifyAPI = require("./src/models/spotifyAPI.js");
+const spotifyAPI = new SpotifyAPI(request);
 
 var view = {
   auth_url:
@@ -48,6 +50,7 @@ connection.connect(err => {
 
 server.use(bodyParser.json());
 server.use(bodyParser.urlencoded({ extended: true }));
+server.use(express.static("public/template"));
 
 function testTokenForRefresh(userID) {
   return new Promise(function(resolve, reject) {
@@ -61,7 +64,6 @@ function testTokenForRefresh(userID) {
       uniqueID = usersDBObject[0].unique_id;
       refreshToken = usersDBObject[0].refresh_token;
 
-      var spotifyAPI = new SpotifyAPI(request);
       spotifyAPI.testTokenValidity(accessToken).then(function(valid) {
         if (valid) {
           console.log("VALID!" + accessToken)
@@ -113,7 +115,9 @@ function getPlaylistsFromURL(user,playlistArray,callback = false,newURL=false) {
 }
 
 server.get("/", (req, res) => {
-  if (req.cookies.authenticated) {
+  if (!req.cookies.authenticated) {
+    res.send(mustache.to_html(template, view));
+  } else {
     console.log("Authenticated");
     //Move this responsibiltiy to a view-adjacent js file
     //Need to send a reauthentication link if missing
@@ -130,26 +134,12 @@ server.get("/", (req, res) => {
         //renders page without filtering any user details through// cookie doesn't match existing DB user
         res.send(mustache.to_html(template, view));
     });
-  } else {
-    res.send(mustache.to_html(template, view));
   }
 });
 
 function getNewAuthToken(userID, refreshToken) {
-  // return new Promise(function(resolve, reject) {
   console.log("I've been supplied: " + userID);
   return new Promise(function(resolve, reject) {
-    // connection.query(
-    // "SELECT * FROM users WHERE id = ?",
-    // [userID],
-    // (error, users, fields) => {
-    // if (error) {
-    //   console.log(error);
-    //   reject(error);
-    // } else {
-    // refreshToken = users.refresh_token;
-    // resolve(
-    var spotifyAPI = new SpotifyAPI(request);
     spotifyAPI
       .refreshAccessToken(refreshToken, client_id, client_secret)
       .then(function(newToken) {
@@ -157,14 +147,7 @@ function getNewAuthToken(userID, refreshToken) {
         resolve(newToken);
       });
   });
-  // );
-  // }
-  // }
-  // );
-  // });
 }
-
-server.use(express.static("public/template"));
 
 server.post("/submitPlaylists", (req, res) => {
   testTokenForRefresh(req.cookies.authenticated).then(function(user) {
@@ -174,25 +157,15 @@ server.post("/submitPlaylists", (req, res) => {
     }
     var playlistNo = 0;
     var entries = [];
-    var spotifyAPI = new SpotifyAPI(request);
 
     playlistsToUse.forEach(function(playlistID) {
       spotifyAPI.grabPlaylistTracks(user, playlistID, entries, function() {
         playlistNo++;
         if (playlistNo == playlistsToUse.length) {
-          connection.query(
-            "INSERT INTO ?? (user_id,track_id,popularity) VALUES ?",
-            ["xmas_music", entries],
-            (error, users, fields) => {
-              if (error) {
-                console.error("An error in query");
-                throw error;
-              }
-              console.log("Successful entry");
-              mixMusic(user.id);
-              res.redirect("/mix?mixed=" + user.id);
-            }
-          );
+          dbModel.insertMusicIntoXmasMusicTable(entries, function(){
+            mixMusic(user.id);
+            res.redirect("/mix?mixed=" + user.id);
+          })
         }
       });
     });
@@ -209,7 +182,6 @@ server.get("/mix", (req, res) => {
 });
 
 function mixMusic(userID) {
-  var mixer = new Mixer();
   var promises = [
     mixer.getSongs(connection, "xmas_music"),
     mixer.getSongs(connection, "regular_music")
@@ -233,32 +205,18 @@ function mixMusic(userID) {
   });
 }
 
-server.get("/grab_playlist", (req, res) => {});
-
 server.post("/createPlaylist", (req, res) => {
   userID = req.cookies.authenticated;
   playlistName = req.body.playlistName;
   // console.log(req.body)
   testTokenForRefresh(userID).then(function(user) {
     accessToken = user.auth_token;
-
-    spotifyAPI = new SpotifyAPI(request);
     spotifyAPI.createPlaylist(accessToken).then(function(playlistData) {
       var spotifyPlaylistID = playlistData.id;
       var newPlaylistURL = playlistData.external_urls.spotify;
       view.newPlaylistURL = newPlaylistURL;
-      connection.query(
-        "UPDATE mixed_playlist_meta SET playlist_url = ? WHERE user = ?",
-        [newPlaylistURL, userID],
-        (error, users, fields) => {
-          if (error) {
-            console.error("An error in query");
-            throw error;
-          }
-          console.log("Successful entry");
-        }
-      );
 
+      dbModel.updateMixedPlaylistURL(newPlaylistURL,userID);
       dbModel.selectMixedPlaylistMeta(userID).then(function(playlistMeta) {
         dbModel
           .selectMixedPlaylistTracks(playlistMeta[0].playlist_id)
@@ -273,7 +231,6 @@ server.post("/createPlaylist", (req, res) => {
 });
 
 server.get("/callback", function(req, res) {
-  var spotifyAPI = new SpotifyAPI(request);
   var code = req.query.code || null;
   var state = req.query.state || null;
   var authOptions = {
