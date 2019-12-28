@@ -51,34 +51,45 @@ server.use(bodyParser.urlencoded({ extended: true }));
 
 function testTokenForRefresh(userID) {
   return new Promise(function(resolve, reject) {
-                                      // console.log(Object.getOwnPropertyNames(DBModel.prototype))
-    dbModel.userQuery(userID).then(function(usersDBObject){
-    if(!usersDBObject){
-      return resolve(false);
-    }
-    accessToken = usersDBObject[0].auth_token;
-    userID = usersDBObject[0].id;
-    uniqueID = usersDBObject[0].unique_id;
-    refreshToken = usersDBObject[0].refresh_token;
-
-    var spotifyAPI = new SpotifyAPI(request);
-    spotifyAPI.testTokenValidity(accessToken).then(function(valid){
-      if(valid){
-        resolve({ id: userID, auth_token: accessToken, unique_id: uniqueID });
-      } else {
-        getNewAuthToken(userID,refreshToken).then(function(){
-          resolve({id: userID, auth_token: getNewAuthToken(), unique_id: uniqueID});
-        })
+    // console.log(Object.getOwnPropertyNames(DBModel.prototype))
+    dbModel.userQuery(userID).then(function(usersDBObject) {
+      if (!usersDBObject) {
+        reject(false);
       }
-    })
-  })
+      accessToken = usersDBObject[0].auth_token;
+      userID = usersDBObject[0].id;
+      uniqueID = usersDBObject[0].unique_id;
+      refreshToken = usersDBObject[0].refresh_token;
+
+      var spotifyAPI = new SpotifyAPI(request);
+      spotifyAPI.testTokenValidity(accessToken).then(function(valid) {
+        if (valid) {
+          console.log("VALID!" + accessToken)
+          resolve({ id: userID, auth_token: accessToken, unique_id: uniqueID });
+        } else {
+          getNewAuthToken(userID, refreshToken).then(function() {
+            resolve({
+              id: userID,
+              auth_token: getNewAuthToken(),
+              unique_id: uniqueID
+            });
+          });
+        }
+      });
+    });
   });
 }
 
-function getPlaylistsFromURL(supplied_options,playlistArray,callback=false) {
-  request.get(supplied_options, function(error, response, body) {
-    // console.log(body)
-    // console.log(error)
+function getPlaylistsFromURL(user,playlistArray,callback = false,newURL=false) {
+  var options = {
+    url: "https://api.spotify.com/v1/users/" + user.id + "/playlists",
+    headers: { Authorization: "Bearer " + user.auth_token },
+    json: true
+  };
+  if(newURL){
+    options.url = newURL;
+  }
+  request.get(options, function(error, response, body) {
     body.items.forEach(function(playlist) {
       playlistArray.push({
         url: `${playlist.external_urls.spotify} `,
@@ -88,8 +99,7 @@ function getPlaylistsFromURL(supplied_options,playlistArray,callback=false) {
     });
     view.playlistList = "";
     if (body.next) {
-      supplied_options.url = body.next;
-      getPlaylistsFromURL(supplied_options,playlistArray,callback);
+      getPlaylistsFromURL(user, playlistArray, callback,body.next);
     } else {
       //
       playlistArray.forEach(function(playlist) {
@@ -105,26 +115,20 @@ function getPlaylistsFromURL(supplied_options,playlistArray,callback=false) {
 server.get("/", (req, res) => {
   if (req.cookies.authenticated) {
     console.log("Authenticated");
-
     //Move this responsibiltiy to a view-adjacent js file
     //Need to send a reauthentication link if missing
     var playlistArray = [];
+    //check if token needs refreshing
     testTokenForRefresh(req.cookies.authenticated).then(function(user) {
-      if(user){
-        access_token = user.auth_token;
-        user_id = user.id;
-        var options = {
-          url: "https://api.spotify.com/v1/users/" + user_id + "/playlists",
-          headers: { Authorization: "Bearer " + access_token },
-          json: true
-        };
+      // console.log(user)
+        //returns a user item if valid and refreshed; pass to spotify, get playlists, add to rendering template
         view.display_on_auth = "display:none";
-        getPlaylistsFromURL(options,playlistArray, function(){
+        getPlaylistsFromURL(user, playlistArray, function() {
           res.send(mustache.to_html(template, view));
         });
-      } else {
+    }).catch(function(){
+        //renders page without filtering any user details through// cookie doesn't match existing DB user
         res.send(mustache.to_html(template, view));
-      }
     });
   } else {
     res.send(mustache.to_html(template, view));
@@ -133,60 +137,59 @@ server.get("/", (req, res) => {
 
 function getNewAuthToken(userID, refreshToken) {
   // return new Promise(function(resolve, reject) {
-    console.log("I've been supplied: " + userID);
-                  return new Promise(function(resolve, reject) {
+  console.log("I've been supplied: " + userID);
+  return new Promise(function(resolve, reject) {
     // connection.query(
-      // "SELECT * FROM users WHERE id = ?",
-      // [userID],
-      // (error, users, fields) => {
-        // if (error) {
-        //   console.log(error);
-        //   reject(error);
-        // } else {
-          // refreshToken = users.refresh_token;
-          // resolve(
-            var spotifyAPI = new SpotifyAPI(request);
-            spotifyAPI.refreshAccessToken(refreshToken,client_id,client_secret).then(function(newToken){
-              dbModel.uploadNewTokenToDB(newToken,userID);
-              resolve(newToken)
-            })
-
-
-                      });
-          // );
-        // }
-      // }
-    // );
+    // "SELECT * FROM users WHERE id = ?",
+    // [userID],
+    // (error, users, fields) => {
+    // if (error) {
+    //   console.log(error);
+    //   reject(error);
+    // } else {
+    // refreshToken = users.refresh_token;
+    // resolve(
+    var spotifyAPI = new SpotifyAPI(request);
+    spotifyAPI
+      .refreshAccessToken(refreshToken, client_id, client_secret)
+      .then(function(newToken) {
+        dbModel.uploadNewTokenToDB(newToken, userID);
+        resolve(newToken);
+      });
+  });
+  // );
+  // }
+  // }
+  // );
   // });
 }
 
 server.use(express.static("public/template"));
 
-
 server.post("/submitPlaylists", (req, res) => {
   testTokenForRefresh(req.cookies.authenticated).then(function(user) {
     var playlistsToUse = req.body.playlistsToUse;
-    if(typeof playlistsToUse === 'string'){
+    if (typeof playlistsToUse === "string") {
       playlistsToUse = [playlistsToUse];
     }
-    var playlistNo = 0
+    var playlistNo = 0;
     var entries = [];
     var spotifyAPI = new SpotifyAPI(request);
 
     playlistsToUse.forEach(function(playlistID) {
-      spotifyAPI.grabPlaylistTracks(user, playlistID,entries, function(){
+      spotifyAPI.grabPlaylistTracks(user, playlistID, entries, function() {
         playlistNo++;
-        if(playlistNo == playlistsToUse.length){
+        if (playlistNo == playlistsToUse.length) {
           connection.query(
             "INSERT INTO ?? (user_id,track_id,popularity) VALUES ?",
-            ["xmas_music",entries],
+            ["xmas_music", entries],
             (error, users, fields) => {
               if (error) {
                 console.error("An error in query");
                 throw error;
               }
               console.log("Successful entry");
-              mixMusic(user.id)
+              mixMusic(user.id);
               res.redirect("/mix?mixed=" + user.id);
             }
           );
@@ -196,17 +199,16 @@ server.post("/submitPlaylists", (req, res) => {
   });
 });
 
-server.get('/mix', (req,res) => {
+server.get("/mix", (req, res) => {
   // Cookie for user needs to be encrypted form of username, which then stored alongisde name in database, and used for comparison when used in queries like this
-  if(req.query.mixed && req.query.mixed == req.cookies.authenticated){
-      res.redirect("/#Mix");
+  if (req.query.mixed && req.query.mixed == req.cookies.authenticated) {
+    res.redirect("/#Mix");
   } else {
-      res.redirect('/');
+    res.redirect("/");
   }
-})
+});
 
-
-function mixMusic(userID){
+function mixMusic(userID) {
   var mixer = new Mixer();
   var promises = [
     mixer.getSongs(connection, "xmas_music"),
@@ -214,63 +216,61 @@ function mixMusic(userID){
   ];
   Promise.all(promises).then(function(argument) {
     var allMusicArray = argument;
-    if(promises.length > 1){
+    if (promises.length > 1) {
       for (i = 0; i < argument.length - 1; i++) {
         allMusicArray = argument[i].concat(argument[i + 1]);
       }
     }
     var mixedArray = mixer.shuffle(allMusicArray);
-    testTokenForRefresh(userID).then(function(user){
+    testTokenForRefresh(userID).then(function(user) {
       dbModel.createPlaylistMeta(user.id).then(function(last_entry) {
-        var newMixedPlaylist = dbModel.insertMixedPlaylist(last_entry.insertId, mixedArray);
+        var newMixedPlaylist = dbModel.insertMixedPlaylist(
+          last_entry.insertId,
+          mixedArray
+        );
       });
-    })
+    });
   });
 }
 
 server.get("/grab_playlist", (req, res) => {});
 
-
-
-server.post("/createPlaylist", (req,res)=>{
+server.post("/createPlaylist", (req, res) => {
   userID = req.cookies.authenticated;
   playlistName = req.body.playlistName;
   // console.log(req.body)
-  testTokenForRefresh(userID).then(function(user){
+  testTokenForRefresh(userID).then(function(user) {
     accessToken = user.auth_token;
 
     spotifyAPI = new SpotifyAPI(request);
-    spotifyAPI.createPlaylist(accessToken).then(function(playlistData){
+    spotifyAPI.createPlaylist(accessToken).then(function(playlistData) {
       var spotifyPlaylistID = playlistData.id;
-      var newPlaylistURL = playlistData.external_urls.spotify
+      var newPlaylistURL = playlistData.external_urls.spotify;
       view.newPlaylistURL = newPlaylistURL;
       connection.query(
         "UPDATE mixed_playlist_meta SET playlist_url = ? WHERE user = ?",
-        [newPlaylistURL,userID],
+        [newPlaylistURL, userID],
         (error, users, fields) => {
           if (error) {
             console.error("An error in query");
             throw error;
           }
           console.log("Successful entry");
-      });
+        }
+      );
 
       dbModel.selectMixedPlaylistMeta(userID).then(function(playlistMeta) {
-        dbModel.selectMixedPlaylistTracks(playlistMeta[0].playlist_id).then(function(tracks) {
-            spotifyAPI.uploadTracks(tracks,spotifyPlaylistID)
+        dbModel
+          .selectMixedPlaylistTracks(playlistMeta[0].playlist_id)
+          .then(function(tracks) {
+            spotifyAPI.uploadTracks(tracks, spotifyPlaylistID);
           });
       });
+    });
 
-
-    })
-
-
-      res.redirect('/#playlistCreated')
-
-  })
-
-})
-
+    res.redirect("/#playlistCreated");
+  });
+});
 
 server.get("/callback", function(req, res) {
   var spotifyAPI = new SpotifyAPI(request);
@@ -293,11 +293,12 @@ server.get("/callback", function(req, res) {
 
   request.post(authOptions, function(error, response, body) {
     if (!error && response.statusCode === 200) {
-      spotifyAPI.userQuery(body).then(function(returnedUserData){
-        dbModel.storeUserData(returnedUserData.userID, returnedUserData.userEmail)
+      spotifyAPI.userQuery(body).then(function(returnedUserData) {
+        dbModel.storeUserData(
+          returnedUserData.userID,
+          returnedUserData.userEmail
+        );
       });
-
-
     } else {
       res.redirect(
         "/#" +
