@@ -12,7 +12,16 @@
 		<link rel="stylesheet" href="assets/css/main.css" />
 		<noscript><link rel="stylesheet" href="assets/css/noscript.css" /></noscript>
 		<script src="assets/js/jquery.min.js"></script>
+		
+		<!-- Global site tag (gtag.js) - Google Analytics -->
+		<script async src="https://www.googletagmanager.com/gtag/js?id=UA-158075220-1"></script>
+		<script>
+		  window.dataLayer = window.dataLayer || [];
+		  function gtag(){dataLayer.push(arguments);}
+		  gtag('js', new Date());
 
+		  gtag('config', 'UA-158075220-1');
+		</script>
 	</head>
 	<body class="is-preload">
 
@@ -24,7 +33,7 @@
 						<a href="#" class="icon solid fa-home"><span>Home</span></a>
 						<a href="#choosePlaylists" class="icon solid fa-folder"><span>Playlists</span></a>
 						<a href="#Mix" class="icon solid fa-random"><span>Mix</span></a>
-						<a href="#MixedPlaylist" class="icon solid fa-gift"><span>Result</span></a>
+						<a href="#playlistCreated" class="icon solid fa-gift"><span>Result</span></a>
 					</nav>
 
 				<!-- Main -->
@@ -35,7 +44,7 @@
 								<header>
 									<!-- <a id='clickme' href=>Click me</a> -->
 									<img class='spotify-logo' src="images/Spotify_Icon_RGB_Green.png" alt="" /><h1 class='spotify-title'>Spotify Xmas DJ</h1>
-									<p>When you don't want <i>every</i> song to be a christmas song</p>
+									<p style="text-align:center">When you don't want <i>every</i> song to be a christmas song</p>
 									<button class='spotify-button' style="{{display_on_auth}}" onclick="window.location.href = '{{auth_url}}';">Get started</button>
 
 								</header>
@@ -55,8 +64,8 @@
 										<select id="regularPlaylistSelector" multiple="multiple" size="10" style='width:100%' form='playlistMixer' name='playlistsToUse'>
 										{{{playlistList}}}
 										</select>
-											If you don't have a Christmas playlist you want mixed in, click here to have one chosen for you
-											<input type='checkbox' name='supplyXmas' value='supplyXmas'>
+											<!-- If you don't have a Christmas playlist you want mixed in, click here to have one chosen for you
+											<input type='checkbox' name='supplyXmas' value='supplyXmas'> -->
 											<input type="submit" value="submit">
 									</form>
 								</p>
@@ -129,7 +138,8 @@
 							<article id="playlistCreated" class="panel">
 								<header>
 									<h2>It's done!</h2>
-									{{newPlaylistURL}}
+									<p>Isn't that nice? Like a little bit of eggnog after dinner, instead of downing an entire bucket. Have a look in Spotify, or get started below.
+									 <iframe src="{{newPlaylistURL}}" width="100%" height="380" frameborder="0" allowtransparency="true" allow="encrypted-media"></iframe>
 								</header>
 								<!-- <form id='createPlaylist' name='createPlaylist' action='/createPlaylist' method='post'>
 									<div>

@@ -2164,7 +2164,14 @@ input, select, textarea {
 						#main > .panel.intro .pic {
 							height: 25em;
 							width: 100%;
+							position:absolute;
+							top: -20%;
 						}
+						#main > .panel.intro .pic img {
+							display: none;
+						}
+						
+						
 
 						#main > .panel.intro header {
 							padding: 4em;

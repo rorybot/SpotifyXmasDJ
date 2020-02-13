@@ -45,8 +45,8 @@
 					event.stopPropagation();
 
 				// Change panels.
-					if (window.location.hash != href)
-						window.location.hash = href;
+/* 					if (window.location.hash != href)
+						window.location.hash = href; */
 
 			});
 
