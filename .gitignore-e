@@ -1,5 +1,1 @@
-.env
-src/logs
-src/.env
-.src/.env
 node_modules/
