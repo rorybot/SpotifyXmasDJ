@@ -1,3 +1,12 @@
+const bunyan = require('bunyan');
+const log = bunyan.createLogger({
+    name: 'devLog',
+    streams: [{
+        path:  __dirname  + '/../logs/dev.log',
+        // `type: 'file'` is implied
+    }]
+});
+
 module.exports = class SpotifyAPI {
   constructor(requestModule) {
     this.request = requestModule;
@@ -22,23 +31,26 @@ module.exports = class SpotifyAPI {
     });
   }
 
-  uploadTracks(tracks,playlistID){
+  uploadTracks(tracks,playlistID,accessToken){
     var self = this;
     var trackNo = 1;
     var loopNo = 1;
     var uploadBuffer = [];
+    log.info("Gonna upload!!!")
+    log.info(tracks);
+    log.info(playlistID);
     tracks.forEach(function(track) {
       track = "spotify:track:" + track.track;
       uploadBuffer.push(track);
       if (
-        trackNo / 100 == loopNo ||
+        trackNo % 100 == 0 ||
         (tracks.length < 100 && trackNo == tracks.length)
       ) {
         self.uploadChunkToSpotify(uploadBuffer,playlistID,accessToken).then(function(response) {
           // res.send(uploadBuffer);
+          log.info(response)
           uploadBuffer = [];
         });
-      } else {
       }
       trackNo++;
       loopNo++;
@@ -56,31 +68,33 @@ module.exports = class SpotifyAPI {
           }
         };
         self.request.post(authOptions, function(error, response, body) {
-          // console.log(response);
+          // log.info(response);
           if (error) {
+            log.info(error)
             reject(error);
           }
           if(body.error){
-            console.log(body.error);
-            console.log(playlistID)
+            log.info(body.error);
+            log.info(playlistID)
           }
+          log.info(response)
           resolve(response);
         });
     });
   }
 
-  grabPlaylistTracksFromSpotify(user,playlistID,entries,callback = false) {
+  grabPlaylistTracks(user,playlistID,entries,callback = false) {
     var self = this;
-    access_token = user.auth_token;
-    // console.log('auth is:' + auth_token);
+    var access_token = user.auth_token;
+    // log.info('auth is:' + auth_token);
     var options = {
       url: "https://api.spotify.com/v1/playlists/" + playlistID + "/tracks",
       headers: { Authorization: "Bearer " + access_token },
       json: true
     };
     self.request.get(options, function(error, response, body) {
-      // console.log(response);
-      console.log(body.items.length)
+      // log.info(response);
+      log.info(body.items.length)
       for (var i = 0; i < body.items.length; i++) {
         var entry = [user.id];
         entry.push(body.items[i].track.id);
@@ -89,7 +103,7 @@ module.exports = class SpotifyAPI {
       }
 
       if(response){
-        // console.log(entries)
+        // log.info(entries)
         callback()
       }
 
@@ -117,11 +131,14 @@ module.exports = class SpotifyAPI {
         },
         function(error, response, body) {
           if (!error && response.statusCode === 200) {
-            console.log(body.access_token);
+            log.info(body.access_token);
             var new_access_token = body.access_token;
             resolve(new_access_token);
+          } else if (body.error != '') {
+            log.info(body.error)
           } else {
-            reject(error);
+            log.info(body)
+            reject(body);
           }
         }
       )
@@ -140,8 +157,8 @@ module.exports = class SpotifyAPI {
         if (body.error && body.error.status == 401) {
           resolve(false);
         } else {
-          // console.log(body)
-          // console.log(response)
+          // log.info(body)
+          // log.info(response)
           resolve(true);
         }
       });
@@ -161,7 +178,7 @@ module.exports = class SpotifyAPI {
           reject(error);
         } else {
           resolve(body);
-          console.log(body)
+          log.info(body)
         }
       })
     });

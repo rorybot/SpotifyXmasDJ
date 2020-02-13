@@ -31,12 +31,13 @@ module.exports = class Mixer {
     }
   }
 
-  getSongs(databaseConnection, table, callback = false) {
+  getSongs(databaseConnection, table, user_id, callback = false) {
     var self = this;
 
     return new Promise(function(resolve, reject) {
       databaseConnection.query(
-        "SELECT * FROM " + table,
+        "SELECT * FROM " + table + " WHERE user_id = ?",
+        [user_id],
         (error, songs, fields) => {
           if (error) {
 
@@ -50,18 +51,10 @@ module.exports = class Mixer {
           };
           songs.forEach(function(value) {
             i++;
-            if (table == "xmas_music") {
               self.addSong("xmas", value);
               if (i == songs.length) {
                  resolve(self.xmasSongs);
               }
-            }
-            if (table == "regular_music") {
-              self.addSong("regular", value);
-              if (i == songs.length ) {
-                 resolve(self.regularSongs);
-              }
-            }
           });
         }
       );
