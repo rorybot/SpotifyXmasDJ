@@ -2,4 +2,5 @@
 src/logs
 src/.env
 .src/.env
+*.env
 node_modules/

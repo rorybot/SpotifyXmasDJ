@@ -1,7 +1,7 @@
 const mysql = require("mysql");
 const options = {
-  user: global.env.DBUSER,
-  password: global.env.DBPASSWORD,
+  user: process.env.DBUSER,
+  password: process.env.DBPASSWORD,
   database: "spotify_xmas_dj"
 };
 // const connection = mysql.createConnection(options);

@@ -1,3 +1,5 @@
+const dotenv = require('dotenv');
+let result = dotenv.config({ path: __dirname + '/secrets.env' });
 const express = require("express");
 const server = express();
 const path = require("path");
@@ -6,11 +8,10 @@ const url = require("url");
 const session = require("express-session");
 const cookieParser = require("cookie-parser");
 const bodyParser = require("body-parser");
-
 server.use(cookieParser());
 const options = {
-  user: "root",
-  password: "",
+  user: process.env.DBUSER,
+  password: process.env.DBPASSWORD,
   database: "spotify_xmas_dj"
 };
 const connection = mysql.createConnection(options);
