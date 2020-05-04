@@ -1,3 +1,4 @@
+const request = require("request");
 const mustache = require("mustache");
 const fs = require("fs");
 const template = fs.readFileSync(__dirname + "/../../public/template/index.html", "utf8");
@@ -17,48 +18,61 @@ exports.getIndexFile = (req,res) => {
     //Need to send a reauthentication link if missing
     var playlistArray = [];
     //check if token needs refreshing
-    testTokenForRefresh(req.cookies.authenticated).then(function(user) {
+
+
+    // testTokenForRefresh(req.cookies.authenticated).then(function(user) {
       // console.log(user)
         //returns a user item if valid and refreshed; pass to spotify, get playlists, add to rendering template
         // view.display_on_auth = "display:none";
         view.auth_url = "#choosePlaylists";
-        getPlaylistsFromURL(user, playlistArray, function() {
+        getPlaylistsFromURL(req.user, playlistArray, function() {
+          console.log(req)
           res.send(mustache.to_html(template, view));
         });
-    }).catch(function(){
+    // }).catch(function(){
         //renders page without filtering any user details through// cookie doesn't match existing DB user
-        res.send(mustache.to_html(template, view));
-    });
+        // res.send(mustache.to_html(template, view));
+    // });
+
+
   }
 }
 
-
-function testTokenForRefresh(userID) {
-  return new Promise(function(resolve, reject) {
-    // console.log(Object.getOwnPropertyNames(DBModel.prototype))
-    dbModel.userQuery(userID).then(function(usersDBObject) {
-      if (!usersDBObject) {
-        reject(false);
-      }
-      accessToken = usersDBObject[0].auth_token;
-      userID = usersDBObject[0].id;
-      uniqueID = usersDBObject[0].unique_id;
-      refreshToken = usersDBObject[0].refresh_token;
-
-      spotifyAPI.testTokenValidity(accessToken).then(function(valid) {
-        if (valid) {
-          console.log("VALID!" + accessToken)
-          resolve({ id: userID, auth_token: accessToken, unique_id: uniqueID });
-        } else {
-          getNewAuthToken(userID, refreshToken).then(function() {
-            resolve({
-              id: userID,
-              auth_token: getNewAuthToken(),
-              unique_id: uniqueID
-            });
-          });
-        }
+function getPlaylistsFromURL(user,playlistArray,callback = false,newURL=false) {
+  console.log(2)
+  var options = {
+    url: "https://api.spotify.com/v1/users/" + user.id + "/playlists",
+    headers: { Authorization: "Bearer " + user.auth_token },
+    json: true
+  };
+  if(newURL){
+    options.url = newURL;
+  }
+  request.get(options, function(error, response, body) {
+    if(body.error){ console.log(body.error); return calback()}
+      console.log('called')
+    body.items.forEach(function(playlist) {
+      playlistArray.push({
+        url: `${playlist.external_urls.spotify} `,
+        name: `${playlist.name} `,
+        id: `${playlist.id}`
       });
     });
+    view.playlistList = "";
+    if (body.next) {
+      getPlaylistsFromURL(user, playlistArray, callback,body.next);
+    } else {
+      //
+      playlistArray.forEach(function(playlist) {
+        view.playlistList += `<option value='${playlist.id}' >${
+          playlist.name
+        }</option>`;
+      });
+      callback();
+    }
   });
 }
+
+// function testTokenForRefresh(userID) {
+//
+// }
