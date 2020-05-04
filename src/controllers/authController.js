@@ -36,12 +36,12 @@ exports.callback = (req, res) => {
        spotifyAPI.userQuery(body).then(function(returnedUserData) {
         dbModel.storeUserData(
           returnedUserData.id,
-          returnedUserData.email
+          returnedUserData.email,
+          body.access_token,
+          body.refresh_token
         );
         let cookie = req.cookies.authenticated;
-        console.log("Here:", returnedUserData)
         res.cookie('authenticated', returnedUserData.id, { maxAge: 900000, httpOnly: true });
-        req.cookies.authenticated = 'bob';
         res.redirect('/')
       });
     } else {
