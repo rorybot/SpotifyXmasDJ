@@ -1,21 +1,15 @@
 const mustache = require("mustache");
 const fs = require("fs");
-var template = fs.readFileSync(__dirname + "/../../public/template/index.html", "utf8");
-const client_id = process.env.SPOTIFY_XMAS_ID; // Your client id
-var redirect = "https://5890b41e.ngrok.io/callback";
-var view = {
-  auth_url:
-    "https://accounts.spotify.com/authorize?client_id=" +
-    client_id +
-    "&response_type=code&redirect_uri=" +
-    redirect +
-    "&scope=user-read-private%20user-read-email%20playlist-read-private%20playlist-modify-public%20playlist-read-collaborative%20playlist-modify-private%20user-library-modify%20user-library-read%20user-top-read"
-};
+const template = fs.readFileSync(__dirname + "/../../public/template/index.html", "utf8");
+
+let redirect = "http://localhost:4000/callback";
+let view = {};
 
 
 exports.getIndexFile = (req,res) => {
   console.log("LOL")
   if (!req.cookies.authenticated) {
+    view.auth_url = '/spotifyAuth';
     res.send(mustache.to_html(template, view));
   } else {
     console.log("Authenticated");
@@ -36,4 +30,35 @@ exports.getIndexFile = (req,res) => {
         res.send(mustache.to_html(template, view));
     });
   }
+}
+
+
+function testTokenForRefresh(userID) {
+  return new Promise(function(resolve, reject) {
+    // console.log(Object.getOwnPropertyNames(DBModel.prototype))
+    dbModel.userQuery(userID).then(function(usersDBObject) {
+      if (!usersDBObject) {
+        reject(false);
+      }
+      accessToken = usersDBObject[0].auth_token;
+      userID = usersDBObject[0].id;
+      uniqueID = usersDBObject[0].unique_id;
+      refreshToken = usersDBObject[0].refresh_token;
+
+      spotifyAPI.testTokenValidity(accessToken).then(function(valid) {
+        if (valid) {
+          console.log("VALID!" + accessToken)
+          resolve({ id: userID, auth_token: accessToken, unique_id: uniqueID });
+        } else {
+          getNewAuthToken(userID, refreshToken).then(function() {
+            resolve({
+              id: userID,
+              auth_token: getNewAuthToken(),
+              unique_id: uniqueID
+            });
+          });
+        }
+      });
+    });
+  });
 }

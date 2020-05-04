@@ -1,5 +1,5 @@
 const dotenv = require('dotenv');
-let result = dotenv.config({ path: __dirname + '/secrets.env' });
+const result = dotenv.config({ path: __dirname + '/secrets.env' });
 const express = require("express");
 const router = express.Router();
 const server = express();

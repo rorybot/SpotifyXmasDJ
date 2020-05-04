@@ -20,9 +20,9 @@ const client_secret = process.env.SPOTIFY_XMAS_SECRET; // Your secret
 // var stateKey = 'spotify_auth_state';
 const mustache = require("mustache");
 const fs = require("fs");
-var querystring = require("querystring");
 const request = require("request");
-var redirect = "https://5890b41e.ngrok.io/callback";
+// var redirect = "https://5890b41e.ngrok.io/callback";
+let redirect = "http://localhost:4000/callback";
 var template = fs.readFileSync(__dirname + "/public/template/index.html", "utf8");
 const Mixer = require("./src/models/Mixer.js");
 const mixer = new Mixer();
@@ -30,7 +30,8 @@ const DBModel = require("./src/models/DBModel.js");
 const dbModel = new DBModel();
 const SpotifyAPI = require("./src/models/spotifyAPI.js");
 const spotifyAPI = new SpotifyAPI(request);
-const indexController = require('./src/controllers/indexController')
+const indexController = require('./src/controllers/indexController');
+const authController = require('./src/controllers/authController');
 
 connection.connect(err => {
   if (err) {
@@ -115,6 +116,8 @@ function getPlaylistsFromURL(user,playlistArray,callback = false,newURL=false) {
 
 
 router.get('/', indexController.getIndexFile);
+router.get('/spotifyAuth', authController.spotifyUserPermissionAuthentication);
+router.get('/callback', authController.callback)
 
 function getNewAuthToken(userID, refreshToken) {
   console.log("I've been supplied: " + userID);
@@ -128,7 +131,7 @@ function getNewAuthToken(userID, refreshToken) {
   });
 }
 
-server.post("/submitPlaylists", (req, res) => {
+router.post("/submitPlaylists", (req, res) => {
   testTokenForRefresh(req.cookies.authenticated).then(function(user) {
     var playlistsToUse = req.body.playlistsToUse;
     if (typeof playlistsToUse === "string") {
@@ -151,7 +154,7 @@ server.post("/submitPlaylists", (req, res) => {
   });
 });
 
-server.get("/mix", (req, res) => {
+router.get("/mix", (req, res) => {
   // Cookie for user needs to be encrypted form of username, which then stored alongisde name in database, and used for comparison when used in queries like this
   if (req.query.mixed && req.query.mixed == req.cookies.authenticated) {
     res.redirect("/#Mix");
@@ -184,7 +187,7 @@ function mixMusic(userID) {
   });
 }
 
-server.post("/createPlaylist", (req, res) => {
+router.post("/createPlaylist", (req, res) => {
   userID = req.cookies.authenticated;
   playlistName = req.body.playlistName;
   // console.log(req.body)
@@ -209,41 +212,5 @@ server.post("/createPlaylist", (req, res) => {
   });
 });
 
-server.get("/callback", function(req, res) {
-  var code = req.query.code || null;
-  var state = req.query.state || null;
-  var authOptions = {
-    url: "https://accounts.spotify.com/api/token",
-    form: {
-      code: code,
-      redirect_uri: redirect,
-      grant_type: "authorization_code"
-    },
-    headers: {
-      Authorization:
-        "Basic " +
-        new Buffer(client_id + ":" + client_secret).toString("base64")
-    },
-    json: true
-  };
-
-  request.post(authOptions, function(error, response, body) {
-    if (!error && response.statusCode === 200) {
-      spotifyAPI.userQuery(body).then(function(returnedUserData) {
-        dbModel.storeUserData(
-          returnedUserData.userID,
-          returnedUserData.userEmail
-        );
-      });
-    } else {
-      res.redirect(
-        "/#" +
-          querystring.stringify({
-            error: "invalid_token"
-          })
-      );
-    }
-  });
-});
 
 module.exports = router;
