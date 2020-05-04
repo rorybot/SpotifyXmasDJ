@@ -32,6 +32,7 @@ const SpotifyAPI = require("./src/models/spotifyAPI.js");
 const spotifyAPI = new SpotifyAPI(request);
 const indexController = require('./src/controllers/indexController');
 const authController = require('./src/controllers/authController');
+const {authTokenCheck} = require('./src/handlers/authTokenCheck')
 
 connection.connect(err => {
   if (err) {
@@ -81,55 +82,14 @@ function testTokenForRefresh(userID) {
   });
 }
 
-function getPlaylistsFromURL(user,playlistArray,callback = false,newURL=false) {
-  var options = {
-    url: "https://api.spotify.com/v1/users/" + user.id + "/playlists",
-    headers: { Authorization: "Bearer " + user.auth_token },
-    json: true
-  };
-  if(newURL){
-    options.url = newURL;
-  }
-  request.get(options, function(error, response, body) {
-    body.items.forEach(function(playlist) {
-      playlistArray.push({
-        url: `${playlist.external_urls.spotify} `,
-        name: `${playlist.name} `,
-        id: `${playlist.id}`
-      });
-    });
-    view.playlistList = "";
-    if (body.next) {
-      getPlaylistsFromURL(user, playlistArray, callback,body.next);
-    } else {
-      //
-      playlistArray.forEach(function(playlist) {
-        view.playlistList += `<option value='${playlist.id}' >${
-          playlist.name
-        }</option>`;
-      });
-      callback();
-    }
-  });
-}
 
 
 
-router.get('/', indexController.getIndexFile);
+router.get('/', authTokenCheck,indexController.getIndexFile);
 router.get('/spotifyAuth', authController.spotifyUserPermissionAuthentication);
 router.get('/callback', authController.callback)
 
-function getNewAuthToken(userID, refreshToken) {
-  console.log("I've been supplied: " + userID);
-  return new Promise(function(resolve, reject) {
-    spotifyAPI
-      .refreshAccessToken(refreshToken, client_id, client_secret)
-      .then(function(newToken) {
-        dbModel.uploadNewTokenToDB(newToken, userID);
-        resolve(newToken);
-      });
-  });
-}
+
 
 router.post("/submitPlaylists", (req, res) => {
   testTokenForRefresh(req.cookies.authenticated).then(function(user) {
