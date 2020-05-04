@@ -12,7 +12,7 @@
 		<link rel="stylesheet" href="assets/css/main.css" />
 		<noscript><link rel="stylesheet" href="assets/css/noscript.css" /></noscript>
 		<script src="assets/js/jquery.min.js"></script>
-		
+
 		<!-- Global site tag (gtag.js) - Google Analytics -->
 		<script async src="https://www.googletagmanager.com/gtag/js?id=UA-158075220-1"></script>
 		<script>
@@ -45,13 +45,14 @@
 									<!-- <a id='clickme' href=>Click me</a> -->
 									<img class='spotify-logo' src="images/Spotify_Icon_RGB_Green.png" alt="" /><h1 class='spotify-title'>Spotify Xmas DJ</h1>
 									<p style="text-align:center">When you don't want <i>every</i> song to be a christmas song</p>
-									<button class='spotify-button' style="{{display_on_auth}}" onclick="window.location.href = '{{auth_url}}';">Get started</button>
-
+									<form style="{{display_on_auth}}" action="{{auth_url}}" method="GET">
+    								<input class='spotify-button' type="submit" value="Get Started" />
+									</form>
 								</header>
-								<a href="#choosePlaylists" class="jumplink pic">
+								<!-- <a href="#choosePlaylists" class="jumplink pic">
 									<span class="arrow icon solid fa-chevron-right"><span>Choose your playlists</span></span>
 									<img src="images/me.jpg" alt="" />
-								</a>
+								</a> -->
 							</article>
 
 						<!-- Work -->
