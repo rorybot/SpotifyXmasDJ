@@ -5,12 +5,9 @@ const template = fs.readFileSync(
   __dirname + "/../../public/template/index.html",
   "utf8"
 );
-
-let redirect = "http://localhost:4000/callback";
 let view = {};
 
 exports.getIndexFile = async (req, res) => {
-  console.log("LOL");
   if (!req.cookies.authenticated) {
     view.auth_url = "/spotifyAuth";
     res.send(mustache.to_html(template, view));

@@ -6,10 +6,11 @@ const spotifyAPI = new SpotifyAPI(request);
 const DBModel = require("../models/DBModel.js");
 const dbModel = new DBModel();
 const querystring = require("querystring");
-let redirect = "http://localhost:4000/callback";
+const redirectString = (req,callback) => req.protocol + "://" + req.headers.host + '/callback';
 
 exports.spotifyUserPermissionAuthentication = (req,res) => {
-  res.redirect(`https://accounts.spotify.com/authorize?client_id=${client_id}&response_type=code&redirect_uri=${redirect}&scope=user-read-private%20user-read-email%20playlist-read-private%20playlist-modify-public%20playlist-read-collaborative%20playlist-modify-private%20user-library-modify%20user-library-read%20user-top-read`)
+  if(req.cookies.authenticated) return res.send('/#choosePlaylists');
+  res.redirect(`https://accounts.spotify.com/authorize?client_id=${client_id}&response_type=code&redirect_uri=${redirectString(req,'/callback')}&scope=user-read-private%20user-read-email%20playlist-read-private%20playlist-modify-public%20playlist-read-collaborative%20playlist-modify-private%20user-library-modify%20user-library-read%20user-top-read`)
 }
 
 
@@ -20,7 +21,7 @@ exports.callback = (req, res) => {
     url: "https://accounts.spotify.com/api/token",
     form: {
       code: code,
-      redirect_uri: redirect,
+      redirect_uri: redirectString(req,'/callback'),
       grant_type: "authorization_code"
     },
     headers: {
@@ -42,9 +43,10 @@ exports.callback = (req, res) => {
         );
         let cookie = req.cookies.authenticated;
         res.cookie('authenticated', returnedUserData.id, { maxAge: 900000, httpOnly: true });
-        res.redirect('/')
+        res.redirect('/#choosePlaylists')
       });
     } else {
+      console.log(response)
       res.redirect(
         "/#" +
           querystring.stringify({
