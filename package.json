@@ -5,7 +5,8 @@
   "main": "server.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "start": "node server.js"
+    "start": "node server.js",
+    "watch": "watch 'npm run start' ./"
   },
   "repository": {
     "type": "git",
@@ -37,5 +38,8 @@
     "reload": "^3.0.3",
     "request": "^2.88.0",
     "secure-env": "^1.2.0"
+  },
+  "devDependencies": {
+    "watch": "^1.0.2"
   }
 }
