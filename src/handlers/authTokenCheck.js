@@ -54,7 +54,7 @@ const validate = (userID) => new Promise(function(resolve, reject) {
 
 
 exports.authTokenCheck = (req,res,next) => {
-    console.log("Need to authenticated",req.cookies.authenticated)
+  console.log("Need to authenticated",req.cookies.authenticated)
   if(!req.cookies.authenticated) return next()
   const userID = req.cookies.authenticated;
   validate(userID)

@@ -60,7 +60,7 @@ function getPlaylistsFromURL(user, newURL = false, playlistArray = []) {
       if (body.next) {
         resolve(getPlaylistsFromURL(user, body.next, playlistArray));
       } else {
-	resolve([].concat(...playlistArray));
+	      resolve([].concat(...playlistArray));
       }
     });
   });
