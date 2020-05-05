@@ -138,7 +138,6 @@ module.exports = class DBModel {
 
   insertMixedPlaylist(playlistID, allMusicArray) {
     allMusicArray.forEach(function(song) {
-      console.log(song)
       connection.query(
         "INSERT INTO mixed_playlist (track,popularity,playlist_id) VALUES (?,?,?)",
         [song.track_id, song.popularity, playlistID],
@@ -155,13 +154,12 @@ module.exports = class DBModel {
   selectMixedPlaylistMeta(user) {
     return new Promise(function(resolve, reject) {
       connection.query(
-        "SELECT * FROM mixed_playlist_meta WHERE user = ?",
+        "SELECT * FROM mixed_playlist_meta as _mpm INNER JOIN mixed_playlist as _mp ON _mp.playlist_id = _mpm.playlist_id WHERE user = ? AND track IS NOT NULL ",
         [user],
         (error, playlist_meta, fields) => {
           if (error) {
             reject(error);
           }
-
           resolve(playlist_meta);
         }
       );
@@ -230,17 +228,28 @@ module.exports = class DBModel {
       log.info("Nothing to store:", entries)
       return;
     }
-    connection.query(
-      "INSERT INTO ?? (user_id,track_id,popularity) VALUES ?",
-      ["xmas_music", entries],
-      (error, users, fields) => {
-        if (error) {
-          throw error;
+    console.log("Inserting")
+    return new Promise(function(resolve, reject) {
+      connection.query(
+        "INSERT INTO ?? (user_id,track_id,popularity) VALUES ?",
+        ["xmas_music", entries],
+        (error, users, fields) => {
+          error ? reject(error) : resolve(users)
         }
-        log.info("Successful entry");
-        callback();
-      }
-    );
+      );
+    });
+  }
 
+  wipeExistingTracks(userID){
+    console.log('deleting')
+    return new Promise(function(resolve, reject) {
+      connection.query(
+        "DELETE FROM xmas_music WHERE user_id = ?",
+        [userID],
+        (error,users,fields) => {
+          error ? reject(error) : resolve(users)
+        }
+      )
+    });
   }
 };

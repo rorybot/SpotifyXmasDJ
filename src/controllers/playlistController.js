@@ -14,46 +14,35 @@ exports.createPlaylist = async (req, res) => {
   if (typeof playlistsToUse === "string") {
     playlistsToUse = [playlistsToUse];
   }
-  let playlistNo = 0;
-  let entries = [];
 
   const allPromises = playlistsToUse.map(playlistID =>
-    spotifyAPI.grabPlaylistTracks(user, playlistID, entries)
+    spotifyAPI.grabPlaylistTracks(user, playlistID, [])
   );
-  await Promise.all(allPromises)
-    .then(playlistTracksMetaArray => {
-      playlistTracksMetaArray.forEach(playlistSet => {
-        dbModel.insertMusicIntoXmasMusicTable(playlistSet, () => {
-          mixMusic(user.id);
-        });
-      });
+  //Add to promise list: delete tracks before adding more
+  const promiseResults = await Promise.all(allPromises);
+  let nextPromises = dbModel.wipeExistingTracks(user.id);
+  nextPromises += promiseResults.map(playlistSet =>
+    dbModel
+      .insertMusicIntoXmasMusicTable(playlistSet)
+      .catch(err => err.forEach(el => console.log(el)))
+  );
+  Promise.all(nextPromises).then(x => {
+    mixMusic(user.id);
+    res.redirect("/mix?mixed=" + user.id);
   });
-            res.redirect("/mix?mixed=" + user.id);
-
 };
 
-
-
 function mixMusic(userID) {
-  var promises = [
-    mixer.getSongs(connection, "xmas_music")
-    // mixer.getSongs(connection, "regular_music")
-  ];
-  Promise.all(promises).then(function(argument) {
-    var allMusicArray = argument;
-    if (promises.length > 1) {
-      for (i = 0; i < argument.length - 1; i++) {
-        allMusicArray = argument[i].concat(argument[i + 1]);
-      }
-    }
-    var mixedArray = mixer.shuffle(allMusicArray);
-    testTokenForRefresh(userID).then(function(user) {
-      dbModel.createPlaylistMeta(user.id).then(function(last_entry) {
+  mixer
+    .getSongs(connection, "xmas_music", userID)
+    .then(function(promiseResult) {
+      let mixedArray = mixer.shuffle(promiseResult);
+      dbModel.createPlaylistMeta(userID).then(function(last_entry) {
+        console.log(mixedArray.length);
         var newMixedPlaylist = dbModel.insertMixedPlaylist(
           last_entry.insertId,
           mixedArray
         );
       });
     });
-  });
 }
