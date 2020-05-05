@@ -32,6 +32,7 @@ const SpotifyAPI = require("./src/models/spotifyAPI.js");
 const spotifyAPI = new SpotifyAPI(request);
 const indexController = require('./src/controllers/indexController');
 const authController = require('./src/controllers/authController');
+const playlistController = require('./src/controllers/playlistController');
 const {authTokenCheck} = require('./src/handlers/authTokenCheck')
 
 connection.connect(err => {
@@ -86,35 +87,15 @@ function testTokenForRefresh(userID) {
 
 
 router.get('/', authTokenCheck,indexController.getIndexFile);
+router.get('/#choosePlaylists', authTokenCheck,indexController.getIndexFile);
 router.get('/spotifyAuth', authController.spotifyUserPermissionAuthentication);
-router.get('/callback', authController.callback)
+router.get('/callback', authController.callback);
+// router.get('/#choosePlaylists', indexController.populatePlaylistForm);
 
-
-
-router.post("/submitPlaylists", (req, res) => {
-  testTokenForRefresh(req.cookies.authenticated).then(function(user) {
-    var playlistsToUse = req.body.playlistsToUse;
-    if (typeof playlistsToUse === "string") {
-      playlistsToUse = [playlistsToUse];
-    }
-    var playlistNo = 0;
-    var entries = [];
-
-    playlistsToUse.forEach(function(playlistID) {
-      spotifyAPI.grabPlaylistTracks(user, playlistID, entries, function() {
-        playlistNo++;
-        if (playlistNo == playlistsToUse.length) {
-          dbModel.insertMusicIntoXmasMusicTable(entries, function(){
-            mixMusic(user.id);
-            res.redirect("/mix?mixed=" + user.id);
-          })
-        }
-      });
-    });
-  });
-});
+router.post("/submitPlaylists", authTokenCheck,playlistController.createPlaylist)
 
 router.get("/mix", (req, res) => {
+  console.log("Got to mix")
   // Cookie for user needs to be encrypted form of username, which then stored alongisde name in database, and used for comparison when used in queries like this
   if (req.query.mixed && req.query.mixed == req.cookies.authenticated) {
     res.redirect("/#Mix");
@@ -123,53 +104,30 @@ router.get("/mix", (req, res) => {
   }
 });
 
-function mixMusic(userID) {
-  var promises = [
-    mixer.getSongs(connection, "xmas_music"),
-    mixer.getSongs(connection, "regular_music")
-  ];
-  Promise.all(promises).then(function(argument) {
-    var allMusicArray = argument;
-    if (promises.length > 1) {
-      for (i = 0; i < argument.length - 1; i++) {
-        allMusicArray = argument[i].concat(argument[i + 1]);
-      }
-    }
-    var mixedArray = mixer.shuffle(allMusicArray);
-    testTokenForRefresh(userID).then(function(user) {
-      dbModel.createPlaylistMeta(user.id).then(function(last_entry) {
-        var newMixedPlaylist = dbModel.insertMixedPlaylist(
-          last_entry.insertId,
-          mixedArray
-        );
-      });
-    });
-  });
-}
 
 router.post("/createPlaylist", (req, res) => {
   userID = req.cookies.authenticated;
   playlistName = req.body.playlistName;
   // console.log(req.body)
-  testTokenForRefresh(userID).then(function(user) {
-    accessToken = user.auth_token;
-    spotifyAPI.createPlaylist(accessToken).then(function(playlistData) {
-      var spotifyPlaylistID = playlistData.id;
-      var newPlaylistURL = playlistData.external_urls.spotify;
-      view.newPlaylistURL = newPlaylistURL;
+  // testTokenForRefresh(userID).then(function(user) {
+  accessToken = user.auth_token;
+  spotifyAPI.createPlaylist(accessToken).then(function(playlistData) {
+    var spotifyPlaylistID = playlistData.id;
+    var newPlaylistURL = playlistData.external_urls.spotify;
+    view.newPlaylistURL = newPlaylistURL;
 
-      dbModel.updateMixedPlaylistURL(newPlaylistURL,userID);
-      dbModel.selectMixedPlaylistMeta(userID).then(function(playlistMeta) {
-        dbModel
-          .selectMixedPlaylistTracks(playlistMeta[0].playlist_id)
-          .then(function(tracks) {
-            spotifyAPI.uploadTracks(tracks, spotifyPlaylistID);
-          });
-      });
+    dbModel.updateMixedPlaylistURL(newPlaylistURL,userID);
+    dbModel.selectMixedPlaylistMeta(userID).then(function(playlistMeta) {
+      dbModel
+        .selectMixedPlaylistTracks(playlistMeta[0].playlist_id)
+        .then(function(tracks) {
+          spotifyAPI.uploadTracks(tracks, spotifyPlaylistID);
+        });
     });
-
-    res.redirect("/#playlistCreated");
   });
+
+  res.redirect("/#playlistCreated");
+  // });
 });
 
 
