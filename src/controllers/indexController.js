@@ -7,7 +7,7 @@ const template = fs.readFileSync(
 );
 let view = {};
 
-exports.getIndexFile = async (req, res) => {
+exports.getIndexFile = (req, res) => {
   if (!req.cookies.authenticated) {
     view.auth_url = "/spotifyAuth";
     res.send(mustache.to_html(template, view));
@@ -18,7 +18,9 @@ exports.getIndexFile = async (req, res) => {
 
     view.auth_url = "#choosePlaylists";
 
-    await getPlaylistsFromURL(req.user).then(finalResult => {
+    if(!req.user) return res.send(mustache.to_html(template, view));
+
+    getPlaylistsFromURL(req.user).then(finalResult => {
       let final = finalResult.map(function(playlist) {
         return `<option value='${playlist.id}' >${playlist.name}</option>`;
       });
