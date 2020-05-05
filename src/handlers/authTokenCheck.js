@@ -54,8 +54,9 @@ const validate = (userID) => new Promise(function(resolve, reject) {
 
 
 exports.authTokenCheck = (req,res,next) => {
-  userID = req.cookies.authenticated;
-  if(!userID) return next()
+    console.log("Need to authenticated",req.cookies.authenticated)
+  if(!req.cookies.authenticated) return next()
+  const userID = req.cookies.authenticated;
   validate(userID)
     .then( returnedUser => {req.user = returnedUser;return next() })
     .catch(x =>{console.log('error:', x); return next()})
