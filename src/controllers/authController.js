@@ -42,7 +42,8 @@ exports.callback = (req, res) => {
           body.refresh_token
         );
         let cookie = req.cookies.authenticated;
-        res.cookie('authenticated', returnedUserData.id, { expires: new Date(Date.now() + (86400*30)), rolling: true, saveUninitialized: true });
+        const oneDayFromMS = 86400000
+        res.cookie('authenticated', returnedUserData.id, { expires: new Date(Date.now() + (oneDayFromMS*30)), rolling: true, saveUninitialized: true });
         res.redirect('/#choosePlaylists')
       });
     } else {
