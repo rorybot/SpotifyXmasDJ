@@ -39,7 +39,7 @@ module.exports = class DBModel {
   constructor() {}
 
   userQuery(userID = false) {
-      console.log(global.env.DBUSER)
+      console.log(process.env.DBUSER)
     return new Promise(function(resolve, reject) {
       connection.query(
         "SELECT * FROM users WHERE id = ?",
@@ -73,9 +73,17 @@ module.exports = class DBModel {
   storeUserData(userID, userEmail, access_token, refresh_token) {
     this.checkDuplicate(userID).then(function(userCheck) {
       if (userCheck.length > 0) {
-        log.info(
-          "Not saving " + userID + " to database because it already exists"
-        );
+        connection.query(
+          "UPDATE users SET ? WHERE id = ?",
+          [{id: userID,email: userEmail,auth_token: access_token,refresh_token},userID],
+          (error, users, fields) => {
+            if (error) {
+              console.error("An error in query");
+              throw error;
+            }
+            log.info("Successful entry");
+          }
+        )
       } else {
         connection.query(
           "INSERT INTO users (id,email,auth_token,refresh_token) VALUES (?,?,?,?)",
@@ -217,8 +225,9 @@ module.exports = class DBModel {
     });
   }
 
-  insertMusicIntoXmasMusicTable(user,entries, callback = false) {
+  insertMusicIntoXmasMusicTable(entries, callback = false) {
     if(entries.length < 1){
+      log.info("Nothing to store:", entries)
       return;
     }
     connection.query(
