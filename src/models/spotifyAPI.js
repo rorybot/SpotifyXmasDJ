@@ -58,28 +58,27 @@ module.exports = class SpotifyAPI {
   }
 
   uploadChunkToSpotify(chunk, playlistID, access_token) {
-    var self = this;
+    const self = this;
+    const authOptions = {
+      url: "https://api.spotify.com/v1/playlists/" + playlistID + "/tracks",
+      headers: { Authorization: "Bearer " + access_token },
+      json: {
+        uris: chunk
+      }
+    };
     return new Promise(function(resolve, reject) {
-        var authOptions = {
-          url: "https://api.spotify.com/v1/playlists/" + playlistID + "/tracks",
-          headers: { Authorization: "Bearer " + access_token },
-          json: {
-            uris: chunk
-          }
-        };
-        self.request.post(authOptions, function(error, response, body) {
-          // log.info(response);
-          if (error) {
-            log.info(error)
-            reject(error);
-          }
-          if(body.error){
-            log.info(body.error);
-            log.info(playlistID)
-          }
-          log.info(response)
-          resolve(response);
-        });
+      self.request.post(authOptions, function(error, response, body) {
+        if (error) {
+          log.info(error)
+          reject(error);
+        }
+        if(body.error){
+          log.info(body.error);
+          log.info(playlistID)
+        }
+        log.info(response)
+        resolve(response);
+      });
     });
   }
 
@@ -152,7 +151,7 @@ module.exports = class SpotifyAPI {
     });
   }
 
-  createPlaylist(accessToken){
+  createPlaylist(accessToken,playlistName,userID){
     var self = this;
     return new Promise(function(resolve, reject) {
       var authOptions = {
