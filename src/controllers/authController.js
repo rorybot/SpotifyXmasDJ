@@ -42,7 +42,7 @@ exports.callback = (req, res) => {
           body.refresh_token
         );
         let cookie = req.cookies.authenticated;
-        res.cookie('authenticated', returnedUserData.id, { maxAge: 900000, httpOnly: true });
+        res.cookie('authenticated', returnedUserData.id, { maxAge: 900000 });
         res.redirect('/#choosePlaylists')
       });
     } else {
