@@ -105,23 +105,26 @@ router.get("/mix", (req, res) => {
 });
 
 
-router.post("/createPlaylist", (req, res) => {
-  userID = req.cookies.authenticated;
-  playlistName = req.body.playlistName;
+router.post("/createPlaylist", authTokenCheck, (req, res) => {
+  const userID = req.cookies.authenticated;
+  const playlistName = req.body.playlistName;
+  const user = req.user;
   // console.log(req.body)
   // testTokenForRefresh(userID).then(function(user) {
-  accessToken = user.auth_token;
-  spotifyAPI.createPlaylist(accessToken).then(function(playlistData) {
-    var spotifyPlaylistID = playlistData.id;
-    var newPlaylistURL = playlistData.external_urls.spotify;
+  const accessToken = user.auth_token;
+  spotifyAPI.createPlaylist(accessToken,playlistName,userID).then(function(playlistData) {
+    const spotifyPlaylistID = playlistData.id;
+    const newPlaylistURL = playlistData.external_urls.spotify;
     view.newPlaylistURL = newPlaylistURL;
 
     dbModel.updateMixedPlaylistURL(newPlaylistURL,userID);
     dbModel.selectMixedPlaylistMeta(userID).then(function(playlistMeta) {
+      console.log("playlistMeta",playlistMeta)
       dbModel
         .selectMixedPlaylistTracks(playlistMeta[0].playlist_id)
         .then(function(tracks) {
-          spotifyAPI.uploadTracks(tracks, spotifyPlaylistID);
+          console.log("Necessary:", tracks, spotifyPlaylistID)
+          spotifyAPI.uploadTracks(tracks, spotifyPlaylistID,accessToken);
         });
     });
   });
