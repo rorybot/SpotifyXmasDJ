@@ -86,27 +86,16 @@ module.exports = class SpotifyAPI {
   grabPlaylistTracks(user,playlistID,entries,callback = false) {
     var self = this;
     var access_token = user.auth_token;
-    // log.info('auth is:' + auth_token);
     var options = {
       url: "https://api.spotify.com/v1/playlists/" + playlistID + "/tracks",
       headers: { Authorization: "Bearer " + access_token },
       json: true
     };
-    self.request.get(options, function(error, response, body) {
-      // log.info(response);
-      log.info(body.items.length)
-      for (var i = 0; i < body.items.length; i++) {
-        var entry = [user.id];
-        entry.push(body.items[i].track.id);
-        entry.push(body.items[i].track.popularity);
-        entries.push(entry);
-      }
-
-      if(response){
-        // log.info(entries)
-        callback()
-      }
-
+    return new Promise(function(resolve, reject) {
+      self.request.get(options, function(error, response, body) {
+        const playlistData = body.items.map( item => [user.id,item.track.id, item.track.popularity])
+        response.statusCode == 200 ? resolve(playlistData) : reject((error))
+      });
     });
   }
 
@@ -134,8 +123,6 @@ module.exports = class SpotifyAPI {
             log.info(body.access_token);
             var new_access_token = body.access_token;
             resolve(new_access_token);
-          } else if (body.error != '') {
-            log.info(body.error)
           } else {
             log.info(body)
             reject(body);
