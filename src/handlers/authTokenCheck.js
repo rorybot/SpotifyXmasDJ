@@ -11,14 +11,15 @@ const client_id = process.env.SPOTIFY_XMAS_ID; // Your client id
 const client_secret = process.env.SPOTIFY_XMAS_SECRET; // Your secret
 
 function getNewAuthToken(userID, refreshToken) {
-  console.log("I've been supplied: " + userID);
+  console.log("Getting a new token for: " + userID);
   return new Promise(function(resolve, reject) {
     spotifyAPI
       .refreshAccessToken(refreshToken, client_id, client_secret)
       .then(function(newToken) {
         dbModel.uploadNewTokenToDB(newToken, userID);
         resolve(newToken);
-      });
+      })
+      .catch( x => reject(x));
   });
 }
 
@@ -39,12 +40,13 @@ const validate = (userID) => new Promise(function(resolve, reject) {
           resolve({ id: userID, auth_token: accessToken, unique_id: uniqueID });
         } else {
           getNewAuthToken(userID, refreshToken).then(function(newToken) {
+            console.log("New token", newToken)
             resolve({
               id: userID,
               auth_token: newToken,
               unique_id: uniqueID
             });
-          });
+          }).catch( x => {console.log("ERROR!:", x); reject(x)});
         }
       });
     });
