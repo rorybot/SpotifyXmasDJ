@@ -119,11 +119,11 @@ router.post("/createPlaylist", authTokenCheck, (req, res) => {
 
     dbModel.updateMixedPlaylistURL(newPlaylistURL,userID);
     dbModel.selectMixedPlaylistMeta(userID).then(function(playlistMeta) {
-      console.log("playlistMeta",playlistMeta)
+//      console.log("playlistMeta",playlistMeta)
       dbModel
         .selectMixedPlaylistTracks(playlistMeta[0].playlist_id)
         .then(function(tracks) {
-          console.log("Necessary:", tracks, spotifyPlaylistID)
+  //        console.log("Necessary:", tracks, spotifyPlaylistID)
           spotifyAPI.uploadTracks(tracks, spotifyPlaylistID,accessToken);
         });
     });

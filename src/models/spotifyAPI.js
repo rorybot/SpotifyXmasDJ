@@ -70,9 +70,11 @@ module.exports = class SpotifyAPI {
       self.request.post(authOptions, function(error, response, body) {
         if (error) {
           log.info(error)
+	console.log(authOptions)
           reject(error);
         }
         if(body.error){
+		console.log(authOptions)
           log.info(body.error);
           log.info(playlistID)
         }

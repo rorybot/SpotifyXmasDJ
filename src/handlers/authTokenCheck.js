@@ -12,6 +12,7 @@ const client_secret = process.env.SPOTIFY_XMAS_SECRET; // Your secret
 
 function getNewAuthToken(userID, refreshToken) {
   console.log("Getting a new token for: " + userID);
+  console.log("Using thisrefreshToken;", refreshToken)
   return new Promise(function(resolve, reject) {
     spotifyAPI
       .refreshAccessToken(refreshToken, client_id, client_secret)
@@ -35,18 +36,17 @@ const validate = (userID) => new Promise(function(resolve, reject) {
       usersDBObject[0].refresh_token];
 
       spotifyAPI.testTokenValidity(accessToken).then(function(valid) {
-        if (valid) {
-          console.log("VALID!" + accessToken)
-          resolve({ id: userID, auth_token: accessToken, unique_id: uniqueID });
+        let package =  {id: userID, auth_token: accessToken, unique_id: uniqueID }
+	      
+	if (valid) {
+          console.log("VALID! No need for new token" + accessToken)
+          resolve(package);
         } else {
           getNewAuthToken(userID, refreshToken).then(function(newToken) {
-            console.log("New token", newToken)
-            resolve({
-              id: userID,
-              auth_token: newToken,
-              unique_id: uniqueID
-            });
-          }).catch( x => {console.log("ERROR!:", x); reject(x)});
+            console.log("New token received from spotify", newToken)
+	    package.auth_token = newToken;
+            resolve(package)
+	  }).catch( x => {console.log(x);reject(x);})
         }
       });
     });
@@ -58,7 +58,7 @@ exports.authTokenCheck = (req,res,next) => {
   if(!req.cookies.authenticated) return next()
   const userID = req.cookies.authenticated;
   validate(userID)
-    .then( returnedUser => {req.user = returnedUser;return next() })
+    .then( returnedUser => {req.user = returnedUser; console.log(req.user);return next() })
     .catch(x =>{console.log('error:', x); return next()})
 }
 
