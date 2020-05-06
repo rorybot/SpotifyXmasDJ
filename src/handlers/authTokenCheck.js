@@ -9,6 +9,7 @@ const DBModel = require("../models/DBModel.js");
 const dbModel = new DBModel();
 const client_id = process.env.SPOTIFY_XMAS_ID; // Your client id
 const client_secret = process.env.SPOTIFY_XMAS_SECRET; // Your secret
+const redirectString = (req,callback) => req.protocol + "://" + req.headers.host + '/callback';
 
 function getNewAuthToken(userID, refreshToken) {
   console.log("Getting a new token for: " + userID);
@@ -19,7 +20,9 @@ function getNewAuthToken(userID, refreshToken) {
         dbModel.uploadNewTokenToDB(newToken, userID);
         resolve(newToken);
       })
-      .catch( x => reject(x));
+      .catch(
+        x => reject(x)
+      );
   });
 }
 
@@ -59,7 +62,12 @@ exports.authTokenCheck = (req,res,next) => {
   const userID = req.cookies.authenticated;
   validate(userID)
     .then( returnedUser => {req.user = returnedUser;return next() })
-    .catch(x =>{console.log('error:', x); return next()})
+    .catch(
+      x => {
+        if(x.error == 'invalid_grant'){ console.log('error:', x); return  res.redirect(`https://accounts.spotify.com/authorize?client_id=${client_id}&response_type=code&redirect_uri=${redirectString(req,'/callback')}&scope=user-read-private%20user-read-email%20playlist-read-private%20playlist-modify-public%20playlist-read-collaborative%20playlist-modify-private%20user-library-modify%20user-library-read%20user-top-read`)};
+        return next()
+      }
+    )
 }
 
 // = (fn) => {
