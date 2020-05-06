@@ -61,7 +61,6 @@ exports.authTokenCheck = (req,res,next) => {
   if(!req.cookies.authenticated) return next()
   const userID = req.cookies.authenticated;
   validate(userID)
-<<<<<<< HEAD
     .then( returnedUser => {req.user = returnedUser;return next() })
     .catch(
       x => {
